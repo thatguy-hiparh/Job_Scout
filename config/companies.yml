@@ -2,42 +2,285 @@ schedule:
   run_hour_local: 9
 
 targets:
+  # --- CORE DSPs / PLATFORMS (high value) ---
   - name: Spotify
     ats: greenhouse
     slug: spotify
 
+  - name: Apple Music
+    ats: rss
+    homepage: https://www.apple.com/careers/us/
+    rss: https://www.apple.com/newsroom/rss-feed.rss
+
+  - name: YouTube Music / Google
+    ats: rss
+    homepage: https://careers.google.com/
+    rss: https://careers.google.com/jobs/results/feed/rss/
+
+  - name: Amazon Music
+    ats: rss
+    homepage: https://www.amazon.jobs/
+    rss: https://www.amazon.jobs/en/rss
+
+  - name: Meta (Facebook/Instagram)
+    ats: rss
+    homepage: https://www.metacareers.com/
+    rss: https://www.metacareers.com/jobs/feed
+
+  - name: TikTok / ByteDance (Music)
+    ats: rss
+    homepage: https://careers.tiktok.com/
+
+  - name: Deezer
+    ats: rss
+    homepage: https://www.deezerjobs.com/
+
+  - name: SoundCloud
+    ats: greenhouse
+    slug: soundcloud
+
+  - name: TIDAL (Block)
+    ats: greenhouse
+    slug: tidal
+
+  # --- MAJORS / LABEL GROUPS ---
+  - name: Warner Music Group
+    ats: greenhouse
+    slug: warnermusicgroup
+
+  - name: Sony Music
+    ats: workday    # adapter coming in Step 4B
+    slug: sony-music
+
+  - name: Universal Music Group
+    ats: workday    # adapter coming in Step 4B
+    slug: universal-music-group
+
+  - name: The Orchard (Sony)
+    ats: rss
+    homepage: https://www.theorchard.com/company/careers/
+
+  - name: AWAL (Sony)
+    ats: rss
+    homepage: https://www.awal.com/careers/
+
+  - name: Virgin Music Group (UMG)
+    ats: rss
+    homepage: https://www.virgin.com/careers
+
+  - name: Ingrooves (UMG)
+    ats: rss
+    homepage: https://www.ingrooves.com/careers/
+
+  # --- DISTRIBUTORS / RIGHTS TECH ---
+  - name: Believe
+    ats: ashby     # we’ll implement Ashby adapter in Step 4B
+    slug: believe
+    homepage: https://www.believe.com/
+    rss: https://www.believe.com/feed/
+
+  - name: DistroKid
+    ats: greenhouse
+    slug: distrokid
+
+  - name: TuneCore
+    ats: rss
+    homepage: https://www.tunecore.com/company/careers
+
+  - name: CD Baby
+    ats: rss
+    homepage: https://cdbaby.com/
+
+  - name: Merlin Network
+    ats: rss
+    homepage: https://www.merlinnetwork.org/careers
+
+  - name: Jaxsta
+    ats: rss
+    homepage: https://www.jaxsta.com/company/careers
+
+  - name: Muso.ai
+    ats: rss
+    homepage: https://muso.ai/careers
+
+  # --- LYRICS / METADATA ---
   - name: Musixmatch
     ats: lever
     slug: musixmatch
 
-  - name: MuseScore
-    ats: workable     # RSS fallback until workable adapter is added
-    slug: musescore
-    homepage: https://musescore.org/
-    rss: https://musescore.org/en/news/feed
+  - name: LyricFind
+    ats: rss
+    homepage: https://www.lyricfind.com/
 
-  - name: ElevenLabs
+  # --- CREATOR TOOLS / DAWs / AUDIO TECH ---
+  - name: Ableton
     ats: greenhouse
-    slug: elevenlabs
+    slug: ableton
 
   - name: Native Instruments
     ats: greenhouse
     slug: nativeinstruments
 
-  - name: TIDAL
+  - name: Avid
+    ats: rss
+    homepage: https://www.avid.com/company/careers
+
+  - name: BandLab
+    ats: rss
+    homepage: https://bandlab.com/careers
+
+  - name: LANDR
+    ats: rss
+    homepage: https://www.landr.com/careers
+
+  - name: Dolby
     ats: greenhouse
-    slug: tidal
+    slug: dolby
 
-  - name: Believe
-    ats: ashby       # RSS fallback until ashby adapter lands
-    slug: believe
-    homepage: https://www.believe.com/
-    rss: https://www.believe.com/feed/
+  - name: Audacity
+    ats: rss
+    homepage: https://www.audacityteam.org/
 
-  - name: Sony Music
-    ats: workday    # placeholder; adapter to be added
-    slug: sony-music
+  - name: iZotope (Soundwide/NI)
+    ats: rss
+    homepage: https://www.izotope.com/en/careers.html
 
-  - name: Warner Music Group
+  - name: Focusrite / Novation
+    ats: rss
+    homepage: https://focusriteplc.com/careers
+
+  # --- NOTATION / SCORING / EDUCATION ---
+  - name: MuseScore
+    ats: workable  # will switch to real adapter in Step 4B
+    slug: musescore
+    homepage: https://musescore.org/
+    rss: https://musescore.org/en/news/feed
+
+  - name: Noteflight (Hal Leonard)
+    ats: rss
+    homepage: https://www.noteflight.com/jobs
+
+  - name: Flat.io
+    ats: rss
+    homepage: https://flat.io/en/careers
+
+  - name: StaffPad
+    ats: rss
+    homepage: https://www.staffpad.net/
+
+  - name: Soundslice
+    ats: rss
+    homepage: https://www.soundslice.com/jobs/
+
+  # --- AI MUSIC / VOICE TECH ---
+  - name: ElevenLabs
     ats: greenhouse
-    slug: warnermusicgroup
+    slug: elevenlabs
+
+  - name: AIVA
+    ats: rss
+    homepage: https://www.aiva.ai/careers
+
+  - name: Endel
+    ats: rss
+    homepage: https://endel.io/careers
+
+  - name: AudioShake
+    ats: rss
+    homepage: https://www.audioshake.ai/
+
+  - name: Boomy
+    ats: rss
+    homepage: https://www.boomy.com/careers
+
+  - name: Soundful
+    ats: rss
+    homepage: https://www.soundful.com/
+
+  # --- SYNC / PRODUCTION MUSIC / LIBRARIES ---
+  - name: Epidemic Sound
+    ats: teamtailor   # we’ll add adapter later; using homepage for now
+    slug: epidemicsound
+    homepage: https://www.epidemicsound.com/careers/
+
+  - name: Audio Network
+    ats: rss
+    homepage: https://www.audionetwork.com/careers
+
+  - name: Universal Production Music
+    ats: rss
+    homepage: https://www.universalproductionmusic.com/en-it/about/careers
+
+  # --- ITALY-FOCUSED & VENDORS (Plan B postings, good signal) ---
+  - name: Accenture (Italy)
+    ats: workday
+    slug: accenture
+
+  - name: Reply (Italy)
+    ats: workday
+    slug: reply
+
+  - name: Gi Group
+    ats: workday
+    slug: gigroup
+
+  - name: Randstad
+    ats: smartrecruiters
+    slug: randstad
+
+  - name: Adecco
+    ats: rss
+    homepage: https://www.adecco.it/
+
+  - name: ManpowerGroup
+    ats: rss
+    homepage: https://www.manpowergroup.com/work-with-us
+
+  - name: SIAE (Italian PRO)
+    ats: rss
+    homepage: https://www.siae.it/
+
+  - name: FIMI (Italy)
+    ats: rss
+    homepage: https://www.fimi.it/
+
+  - name: Sugar Music (Italy)
+    ats: rss
+    homepage: https://www.sugarmusic.com/
+
+  # --- OTHER GOOD SIGNAL COMPANIES ---
+  - name: Shazam (Apple)
+    ats: rss
+    homepage: https://www.shazam.com/
+
+  - name: Bandcamp
+    ats: rss
+    homepage: https://bandcamp.com/jobs
+
+  - name: Discogs
+    ats: rss
+    homepage: https://careers.discogs.com/
+
+  - name: Beatport
+    ats: rss
+    homepage: https://www.beatport.com/
+
+  - name: Mixcloud
+    ats: rss
+    homepage: https://www.mixcloud.com/careers/
+
+  - name: TuneIn
+    ats: rss
+    homepage: https://tunein.com/careers/
+
+  - name: Audible (Amazon)
+    ats: rss
+    homepage: https://www.audiblecareers.com/
+
+  - name: Pandora / SiriusXM
+    ats: rss
+    homepage: https://www.siriusxm.com/careers
+
+  - name: Sonos
+    ats: rss
+    homepage: https://www.sonos.com/en-us/careers

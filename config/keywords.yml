@@ -1,0 +1,32 @@
+include_keywords:
+  - music
+  - audio
+  - metadata
+  - publishing
+  - royalties
+  - rights
+  - content id
+  - catalog
+  - isrc
+  - iswc
+  - licensing
+  - moderation
+  - trust & safety
+  - quality assurance
+  - qa
+  - data analyst
+  - operations
+
+exclude_keywords:
+  - delivery driver
+  - warehouse operative
+  - bartender
+  - chef
+  - teacher (primary)
+  - caregiver
+  - construction
+
+geo:
+  allow_remote: true
+  countries: ["Italy","Ireland","Germany","Netherlands","Spain","France","United Kingdom","Sweden","Denmark","Norway","Finland","Portugal","Switzerland","Austria","Belgium","Luxembourg","Czech","Poland","Romania"]
+  cities: ["Milan","Trento","Turin","Bologna","Rome","Florence","Dublin","Berlin","Amsterdam","Barcelona","Paris","London","Stockholm"]

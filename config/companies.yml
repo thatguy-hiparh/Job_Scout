@@ -1,0 +1,43 @@
+schedule:
+  run_hour_local: 9
+
+targets:
+  - name: Spotify
+    ats: greenhouse
+    slug: spotify
+
+  - name: Musixmatch
+    ats: lever
+    slug: musixmatch
+
+  - name: MuseScore
+    ats: workable     # RSS fallback until workable adapter is added
+    slug: musescore
+    homepage: https://musescore.org/
+    rss: https://musescore.org/en/news/feed
+
+  - name: ElevenLabs
+    ats: greenhouse
+    slug: elevenlabs
+
+  - name: Native Instruments
+    ats: greenhouse
+    slug: nativeinstruments
+
+  - name: TIDAL
+    ats: greenhouse
+    slug: tidal
+
+  - name: Believe
+    ats: ashby       # RSS fallback until ashby adapter lands
+    slug: believe
+    homepage: https://www.believe.com/
+    rss: https://www.believe.com/feed/
+
+  - name: Sony Music
+    ats: workday    # placeholder; adapter to be added
+    slug: sony-music
+
+  - name: Warner Music Group
+    ats: greenhouse
+    slug: warnermusicgroup

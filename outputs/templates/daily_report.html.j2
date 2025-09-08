@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Job Scout — Daily Report</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+  h1 { margin: 0 0 8px 0; }
+  .meta { color:#666; margin-bottom:16px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
+  th { background: #fafafa; }
+  .company { font-weight: 600; }
+  .small { color:#666; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Job Scout — Daily Report</h1>
+<div class="meta">Generated at {{ generated_at }} • Total results: {{ total }}</div>
+<table>
+  <thead>
+    <tr>
+      <th>Title</th><th>Company</th><th>Location</th><th>Posted</th><th>Source</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td><a href="{{ j.url }}" target="_blank" rel="noopener">{{ j.title or '(No title)' }}</a>
+        <div class="small">{{ j.description_snippet }}</div></td>
+      <td class="company">{{ j.company }}</td>
+      <td>{{ j.location or '—' }}</td>
+      <td>{{ j.posted_at or '—' }}</td>
+      <td>{{ j.source }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</body></html>

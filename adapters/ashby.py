@@ -79,27 +79,35 @@ def fetch(company):
     if data is None:
         raise RuntimeError(f"Ashby: no data for slug={slug}: {last_err}")
 
-    results = []
+        results = []
+
     for j in _iter_jobs(data) or []:
+        # Skip unexpected shapes defensively
+        if not isinstance(j, dict):
+            # Some Ashby orgs return strings/HTML stubs in the list — ignore them.
+            continue
+
         # Field names vary; be generous.
         jid = j.get("id") or j.get("jobId") or j.get("slug") or j.get("externalId")
         title = j.get("title") or (j.get("job") or {}).get("title")
         url   = j.get("jobUrl") or j.get("url") or j.get("applyUrl") or (j.get("job") or {}).get("url")
         dept  = j.get("departmentName") or (j.get("department") or {}).get("name")
+
         loc   = j.get("location") or j.get("jobLocations") or j.get("locations") or {}
         loc_str = _loc_to_string(loc)
+
         remote_flag = False
         if isinstance(loc, dict):
             remote_flag = bool(loc.get("remote"))
         elif isinstance(loc, list):
-            remote_flag = any(bool(x.get("remote")) for x in loc if isinstance(x, dict))
+            remote_flag = any(isinstance(x, dict) and bool(x.get("remote")) for x in loc)
         elif isinstance(loc, str):
             remote_flag = "remote" in loc.lower()
 
         ts = j.get("publishedAt") or j.get("createdAt") or j.get("updatedAt")
         posted = _iso(ts)
 
-        desc = j.get("shortDescription") or j.get("description") or ""
+        desc = j.get("shortDescription") or j.get("description") or (j.get("job") or {}).get("description") or ""
         if isinstance(desc, dict) and "text" in desc:
             desc = desc["text"]
 
@@ -116,4 +124,5 @@ def fetch(company):
             "posted_at": posted,
             "description_snippet": str(desc)[:240],
         })
+
     return results

@@ -13,9 +13,9 @@ from adapters import lever, greenhouse, rss
 ADAPTERS = {
     "lever": lever,
     "greenhouse": greenhouse,
-    "workable": rss,  # temporary fallback
-    "ashby": rss,     # temporary fallback
-    "workday": rss,   # temporary fallback
+    "workable": workable,  # now real adapter
+    "ashby": rss,          # temporary until next step
+    "workday": rss,        # temporary until later
     "rss": rss,
 }
 

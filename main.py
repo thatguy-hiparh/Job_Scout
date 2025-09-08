@@ -8,14 +8,14 @@ from vendors.normalize import normalize
 from vendors.dedupe import dedupe
 from vendors.filters import filter_jobs
 
-from adapters import lever, greenhouse, rss, workable
+from adapters import lever, greenhouse, rss, workable, ashby
 
 ADAPTERS = {
     "lever": lever,
     "greenhouse": greenhouse,
     "workable": workable,
-    "ashby": rss,
-    "workday": rss,
+    "ashby": ashby,      # now real adapter
+    "workday": rss,      # temporary until next step
     "rss": rss,
 }
 

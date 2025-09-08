@@ -8,25 +8,28 @@ def _get(url, timeout=30):
 
 def fetch(company):
     slug = company["slug"]
-    jurl = f"https://boards.greenhouse.io/{slug}/embed/job_board.json"
+    # Use Greenhouse public boards API (more robust than the embed JSON)
+    jurl = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
     r = _get(jurl)
     r.raise_for_status()
-    board = r.json()
+    data = r.json() or {}
+    items = data.get("jobs", [])
     jobs=[]
-    for dep in board.get("departments", []):
-        for x in dep.get("jobs", []):
-            loc_name = (x.get("location") or {}).get("name","")
-            jobs.append({
-                "source": "greenhouse",
-                "company": company["name"],
-                "id": x.get("id"),
-                "title": x.get("title"),
-                "location": loc_name,
-                "remote": "remote" in loc_name.lower(),
-                "department": dep.get("name"),
-                "team": None,
-                "url": x.get("absolute_url"),
-                "posted_at": None,
-                "description_snippet": ""
-            })
+    for x in items:
+        location = (x.get("location") or {}).get("name", "")
+        dep = None
+        # Greenhouse v1 includes departments inside metadata sometimes; keep None if absent
+        jobs.append({
+            "source": "greenhouse",
+            "company": company["name"],
+            "id": x.get("id"),
+            "title": x.get("title"),
+            "location": location,
+            "remote": "remote" in (location or "").lower(),
+            "department": dep,
+            "team": None,
+            "url": x.get("absolute_url") or x.get("absolute_url"),
+            "posted_at": x.get("updated_at") or x.get("created_at"),
+            "description_snippet": "",
+        })
     return jobs

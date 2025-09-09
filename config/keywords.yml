@@ -26,6 +26,23 @@ exclude_keywords:
   - caregiver
   - construction
 
+# Companies that bypass keyword filtering (we trust their domain relevance)
+company_whitelist:
+  - Sony Music
+  - Universal Music Group
+  - Warner Music Group
+  - The Orchard (Sony)
+  - AWAL (Sony)
+  - SoundCloud
+  - Spotify
+  - Musixmatch
+  - Dolby
+  - Audible (Amazon)
+  - TIDAL (Block)
+  - Merlin Network
+  - Believe
+  - MuseScore
+
 geo:
   allow_remote: true
   countries: ["Italy","Ireland","Germany","Netherlands","Spain","France","United Kingdom","Sweden","Denmark","Norway","Finland","Portugal","Switzerland","Austria","Belgium","Luxembourg","Czech","Poland","Romania"]

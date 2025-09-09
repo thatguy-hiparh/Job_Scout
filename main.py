@@ -8,7 +8,7 @@ from vendors.normalize import normalize
 from vendors.dedupe import dedupe
 from vendors.filters import filter_jobs
 
-from adapters import lever, greenhouse, rss, workable, ashby, workday, workday_gql
+from adapters import lever, greenhouse, rss, workable, ashby, workday, workday_gql, smartrecruiters
 
 ADAPTERS = {
     "lever": lever,
@@ -16,7 +16,8 @@ ADAPTERS = {
     "workable": workable,
     "ashby": ashby,
     "workday": workday,
-    "workday_gql": workday_gql,   # <— new
+    "workday_gql": workday_gql,
+    "smartrecruiters": smartrecruiters,   # NEW
     "rss": rss,
 }
 

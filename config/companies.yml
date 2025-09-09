@@ -37,15 +37,15 @@ targets:
 
   - name: SoundCloud
     ats: greenhouse
-    slug: soundcloud71      # Greenhouse board token
+    slug: soundcloud71
 
   - name: TIDAL (Block)
-    ats: rss                # lives under Block; avoid GH 404 for now
+    ats: rss
     homepage: https://block.xyz/careers/
 
   # --- MAJORS / LABEL GROUPS ---
   - name: Warner Music Group
-    ats: workday            # will activate with Workday adapter
+    ats: workday
     slug: WMGUS
 
   - name: Sony Music
@@ -74,11 +74,11 @@ targets:
 
   # --- DISTRIBUTORS / RIGHTS TECH ---
   - name: Believe
-    ats: rss                # SmartRecruiters later
+    ats: rss
     homepage: https://careers.believe.com/en/
 
   - name: DistroKid
-    ats: rss                # avoid GH 404 until verified
+    ats: rss
     homepage: https://distrokid.com/jobs
 
   - name: TuneCore
@@ -149,7 +149,7 @@ targets:
 
   # --- NOTATION / SCORING / EDUCATION ---
   - name: MuseScore
-    ats: rss                # Muse Group umbrella
+    ats: rss
     homepage: https://www.mu.se/careers
 
   - name: Noteflight (Hal Leonard)
@@ -169,9 +169,9 @@ targets:
     homepage: https://www.soundslice.com/jobs/
 
   # --- AI MUSIC / VOICE TECH ---
-- name: ElevenLabs
-  ats: rss
-  homepage: https://elevenlabs.io/careers
+  - name: ElevenLabs
+    ats: ashby
+    slug: elevenlabs
 
   - name: AIVA
     ats: rss

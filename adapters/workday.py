@@ -1,62 +1,60 @@
-import httpx, json
+import httpx, json, os
 from tenacity import retry, wait_exponential, stop_after_attempt
-import os
 
-# Tenants we see most in the wild; add more if needed
 COMMON_TENANTS = ["wd1","wd2","wd3","wd5","wd103"]
-
-# Broad set of site names to probe (case sensitive on server, but most accept these)
 COMMON_SITES = [
     "Careers","External","Global","Jobs","Job","JobBoard",
     "GLOBAL","US","USA","UK","EMEA","EU",
     "GlobalExternal","Global_External"
 ]
+LOCALES = ["", "lang=en-US", "lang=en_GB", "locale=en_US", "locale=en-GB"]
+
+DEFAULT_HEADERS = {
+    "User-Agent": "job-scout/1.0 (+https://github.com/thatguy-hiparh/Job_Scout)",
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://example.com/",
+    "Origin": "https://example.com",
+}
 
 @retry(wait=wait_exponential(min=1, max=30), stop=stop_after_attempt(5))
 def _get(url, timeout=30):
-    with httpx.Client(timeout=timeout, headers={"User-Agent": "job-scout/1.0"}) as c:
+    with httpx.Client(timeout=timeout, headers=DEFAULT_HEADERS, follow_redirects=True) as c:
         return c.get(url)
 
 def _endpoints(company):
-    """
-    Build candidate Workday CXS endpoints. Supports overrides:
-      workday_host, workday_tenant, workday_sites (list)
-    Fallbacks try a wide set of sites + tenants.
-    """
-    slug = (company.get("slug") or "").lower()
-    host = (company.get("workday_host") or slug).lower()
+    slug  = (company.get("slug") or "").lower()
+    host  = (company.get("workday_host") or slug).lower()
     tenant = (company.get("workday_tenant") or "")
-    sites = company.get("workday_sites")
+    sites  = company.get("workday_sites")
 
     tenants = [tenant.lower()] if tenant else COMMON_TENANTS
 
-    # site try-list: explicit -> slug variants -> common
     try_sites = []
     if isinstance(sites, list) and sites:
         try_sites.extend(sites)
-    # add some reasonable slug variants (brand names often equal site)
     for v in {slug, slug.upper(), slug.capitalize()}:
         if v and v not in try_sites:
             try_sites.append(v)
-    # add commons
     for s in COMMON_SITES:
         if s not in try_sites:
             try_sites.append(s)
 
-    candidates = []
+    cands = []
     for t in tenants:
         for site in try_sites:
-            candidates.append(f"https://{host}.{t}.myworkdayjobs.com/wday/cxs/{host}/{site}/jobs")
-            # a few servers need explicit limit to return data
-            candidates.append(f"https://{host}.{t}.myworkdayjobs.com/wday/cxs/{host}/{site}/jobs?limit=200")
-
-    # also try generic workday host (some orgs migrated there)
+            base = f"https://{host}.{t}.myworkdayjobs.com/wday/cxs/{host}/{site}/jobs"
+            cands.append(base)
+            cands.append(f"{base}?limit=200")
+            for q in LOCALES:
+                if q:
+                    cands.append(f"{base}?{q}")
     for site in try_sites:
-        candidates.append(f"https://workdayjobs.com/wday/cxs/{host}/{site}/jobs")
-
-    # de-dupe keep order
+        base = f"https://workdayjobs.com/wday/cxs/{host}/{site}/jobs"
+        cands.append(base)
+        cands.append(f"{base}?limit=200")
+    # de-dup
     seen=set(); ordered=[]
-    for u in candidates:
+    for u in cands:
         if u not in seen:
             seen.add(u); ordered.append(u)
     return ordered
@@ -70,7 +68,7 @@ def fetch(company):
             r = _get(url)
             ct = (r.headers.get("Content-Type","") or "").lower()
             ok = (r.status_code == 200 and "json" in ct)
-            attempts.append({"url": url, "status": r.status_code, "json": ("json" in ct)})
+            attempts.append({"u": url[:120], "s": r.status_code, "j": ("json" in ct)})
             if not ok:
                 continue
             data = r.json()
@@ -87,7 +85,6 @@ def fetch(company):
                 if url2 and url2.startswith("/"):
                     base = url.split("/wday/")[0]
                     url2 = base + url2
-                # remote heuristic
                 remote_flag = False
                 for field in (loc, title):
                     if isinstance(field, str) and "remote" in field.lower():
@@ -96,7 +93,6 @@ def fetch(company):
                 snippet = p.get("shortText") or p.get("description") or ""
                 if isinstance(snippet, dict):
                     snippet = snippet.get("text","")
-
                 jobs.append({
                     "source":"workday",
                     "company": company["name"],
@@ -111,14 +107,11 @@ def fetch(company):
                     "description_snippet": (snippet or "")[:240],
                 })
             if jobs:
-                break   # first endpoint that returns data is enough
+                break
         except Exception:
-            # just try next
             continue
 
     if debug:
-        # Print a compact debug line to Actions logs
-        tried = [{"u":a["url"][:120], "s":a["status"], "j":a["json"]} for a in attempts]
-        print(f"WORKDAY_DEBUG {company['name']}: tried={json.dumps(tried)[:2000]} got={len(jobs)}")
+        print(f"WORKDAY_DEBUG {company['name']}: tried={json.dumps(attempts)[:2000]} got={len(jobs)}")
 
     return jobs

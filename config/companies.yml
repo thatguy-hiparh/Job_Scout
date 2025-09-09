@@ -49,18 +49,12 @@ targets:
     slug: sonymusic
 
   - name: Universal Music Group
-    ats: workday
-    slug: universal-music-group
-    workday_host: umusic
-    workday_tenant: wd5
-    workday_sites: ["UMGUS","UMGUK"]
+    ats: rss
+    homepage: https://www.umusiccareers.com/
 
   - name: Warner Music Group
-    ats: workday
-    slug: wmg
-    workday_host: wmg
-    workday_tenant: wd1
-    workday_sites: ["WMGUS","WMGGLOBAL"]
+    ats: rss
+    homepage: https://www.wmg.com/careers
 
   - name: The Orchard (Sony)
     ats: rss
@@ -214,11 +208,8 @@ targets:
 
   # --- ITALY-FOCUSED & VENDORS ---
   - name: Accenture (Italy)
-    ats: workday
-    slug: accenture
-    workday_host: accenture
-    workday_tenant: wd103
-    workday_sites: ["AccentureCareers"]
+    ats: rss
+    homepage: https://www.accenture.com/it-it/careers
 
   - name: Reply (Italy)
     ats: rss

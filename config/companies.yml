@@ -49,8 +49,11 @@ targets:
     slug: sonymusic
 
   - name: Universal Music Group
-    ats: rss
-    homepage: https://www.umusiccareers.com/
+    ats: workday_gql
+    slug: universal-music-group
+    workday_host: umusic
+    workday_tenant: wd5
+    workday_sites: ["UMGUS","UMGUK"]
 
   - name: Warner Music Group
     ats: rss
@@ -208,8 +211,11 @@ targets:
 
   # --- ITALY-FOCUSED & VENDORS ---
   - name: Accenture (Italy)
-    ats: rss
-    homepage: https://www.accenture.com/it-it/careers
+    ats: workday_gql
+    slug: accenture
+    workday_host: accenture
+    workday_tenant: wd103
+    workday_sites: ["AccentureCareers"]
 
   - name: Reply (Italy)
     ats: rss

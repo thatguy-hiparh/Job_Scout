@@ -169,9 +169,9 @@ targets:
     homepage: https://www.soundslice.com/jobs/
 
   # --- AI MUSIC / VOICE TECH ---
-  - name: ElevenLabs
-    ats: ashby
-    slug: elevenlabs
+- name: ElevenLabs
+  ats: rss
+  homepage: https://elevenlabs.io/careers
 
   - name: AIVA
     ats: rss

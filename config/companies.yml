@@ -44,17 +44,23 @@ targets:
     homepage: https://block.xyz/careers/
 
   # --- MAJORS / LABEL GROUPS ---
-  - name: Warner Music Group
-    ats: workday
-    slug: WMGUS
-
   - name: Sony Music
-    ats: workday
-    slug: sony-music
+    ats: greenhouse
+    slug: sonymusic
 
   - name: Universal Music Group
     ats: workday
     slug: universal-music-group
+    workday_host: umusic
+    workday_tenant: wd5
+    workday_sites: ["UMGUS","UMGUK"]
+
+  - name: Warner Music Group
+    ats: workday
+    slug: wmg
+    workday_host: wmg
+    workday_tenant: wd1
+    workday_sites: ["WMGUS","WMGGLOBAL"]
 
   - name: The Orchard (Sony)
     ats: rss
@@ -210,14 +216,17 @@ targets:
   - name: Accenture (Italy)
     ats: workday
     slug: accenture
+    workday_host: accenture
+    workday_tenant: wd103
+    workday_sites: ["AccentureCareers"]
 
   - name: Reply (Italy)
-    ats: workday
-    slug: reply
+    ats: rss
+    homepage: https://www.reply.com/en/about/careers
 
   - name: Gi Group
-    ats: workday
-    slug: gigroup
+    ats: rss
+    homepage: https://www.gigroupholding.com/careers/
 
   - name: Randstad
     ats: rss

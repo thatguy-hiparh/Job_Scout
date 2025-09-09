@@ -9,85 +9,99 @@ def _get(url, timeout=30):
         return c.get(url)
 
 def _try_endpoints(slug):
-    # Try both common public endpoints
+    # Try both public patterns
     yield f"https://{slug}.ashbyhq.com/api/public/jobs"
     yield f"https://api.ashbyhq.com/posting-api/job-board/{slug}"
 
+def _iso(ts):
+    if not ts: return None
+    s = str(ts)
+    try:
+        return dt.datetime.fromisoformat(s.replace("Z","+00:00")).isoformat()
+    except Exception:
+        return s
+
 def _loc_to_string(loc):
-    if not loc:
-        return ""
+    if not loc: return ""
+    if isinstance(loc, str): return loc
     if isinstance(loc, dict):
         parts = [loc.get("city"), loc.get("region"), loc.get("country")]
         return ", ".join([p for p in parts if p])
     if isinstance(loc, list) and loc:
-        # take first as representative
         return _loc_to_string(loc[0])
-    if isinstance(loc, str):
-        return loc
     return ""
-
-def _iso(ts):
-    if not ts:
-        return None
-    s = str(ts)
-    try:
-        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).isoformat()
-    except Exception:
-        return s
 
 def _iter_jobs(raw):
     """
-    Normalize across Ashby variants:
-    - {"jobs": [...]}
-    - {"data": [...]}
-    - [...] (list directly)
+    Normalize across Ashby variants safely.
+    Accepts dict, list, or odd wrappers; yields only dict jobs.
     """
+    if raw is None:
+        return
+    # If it's a string or anything not iterable as jobs -> nothing
+    if isinstance(raw, str):
+        return
+    # List? yield dict items only
     if isinstance(raw, list):
         for j in raw:
-            yield j
+            if isinstance(j, dict):
+                yield j
         return
+    # Dict?
     if isinstance(raw, dict):
-        for key in ("jobs", "data"):
+        # Common keys
+        for key in ("jobs", "data", "results", "list"):
             v = raw.get(key)
             if isinstance(v, list):
                 for j in v:
-                    yield j
+                    if isinstance(j, dict):
+                        yield j
                 return
-        # Some orgs return {"jobs": {"nodes": [...]}}
-        jobs = raw.get("jobs", {})
-        nodes = jobs.get("nodes") if isinstance(jobs, dict) else None
-        if isinstance(nodes, list):
-            for j in nodes:
-                yield j
-            return
-    # Fallback: nothing iterable
+            if isinstance(v, dict):
+                nodes = v.get("nodes")
+                if isinstance(nodes, list):
+                    for j in nodes:
+                        if isinstance(j, dict):
+                            yield j
+                    return
+        # Some orgs use nested { jobBoard: { jobs: [...] } }
+        jb = raw.get("jobBoard") or raw.get("job_board")
+        if isinstance(jb, dict):
+            v = jb.get("jobs") or jb.get("data")
+            if isinstance(v, list):
+                for j in v:
+                    if isinstance(j, dict):
+                        yield j
+                return
+    # Anything else -> nothing
     return
 
 def fetch(company):
     slug = company["slug"]
-    data = None
-    last_err = None
+    data = None; last_err = None
     for url in _try_endpoints(slug):
         try:
             r = _get(url); r.raise_for_status()
+            # Some Ashby installs return text/html on error; guard here
+            ct = r.headers.get("Content-Type","").lower()
+            if "json" not in ct:
+                # Not JSON – bail gracefully
+                return []
             data = r.json()
-            if data is not None:
-                break
+            break
         except Exception as e:
             last_err = e
             continue
     if data is None:
-        raise RuntimeError(f"Ashby: no data for slug={slug}: {last_err}")
+        # Could be blocked or no public board – return empty, don't crash
+        return []
 
-        results = []
-
+    results = []
     for j in _iter_jobs(data) or []:
-        # Skip unexpected shapes defensively
+        # Ultra-defensive: only dicts
         if not isinstance(j, dict):
-            # Some Ashby orgs return strings/HTML stubs in the list — ignore them.
             continue
 
-        # Field names vary; be generous.
         jid = j.get("id") or j.get("jobId") or j.get("slug") or j.get("externalId")
         title = j.get("title") or (j.get("job") or {}).get("title")
         url   = j.get("jobUrl") or j.get("url") or j.get("applyUrl") or (j.get("job") or {}).get("url")
@@ -95,7 +109,6 @@ def fetch(company):
 
         loc   = j.get("location") or j.get("jobLocations") or j.get("locations") or {}
         loc_str = _loc_to_string(loc)
-
         remote_flag = False
         if isinstance(loc, dict):
             remote_flag = bool(loc.get("remote"))
@@ -104,8 +117,7 @@ def fetch(company):
         elif isinstance(loc, str):
             remote_flag = "remote" in loc.lower()
 
-        ts = j.get("publishedAt") or j.get("createdAt") or j.get("updatedAt")
-        posted = _iso(ts)
+        posted = _iso(j.get("publishedAt") or j.get("createdAt") or j.get("updatedAt"))
 
         desc = j.get("shortDescription") or j.get("description") or (j.get("job") or {}).get("description") or ""
         if isinstance(desc, dict) and "text" in desc:
@@ -124,5 +136,4 @@ def fetch(company):
             "posted_at": posted,
             "description_snippet": str(desc)[:240],
         })
-
     return results

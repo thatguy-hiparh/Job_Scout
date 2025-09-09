@@ -226,12 +226,12 @@ targets:
     homepage: https://www.gigroupholding.com/careers/
 
   - name: Randstad
-    ats: rss
-    homepage: https://careers.randstad.com/
+    ats: smartrecruiters
+    slug: randstad
 
   - name: Adecco
-    ats: rss
-    homepage: https://www.adecco.it/
+    ats: smartrecruiters
+    slug: adecco
 
   - name: ManpowerGroup
     ats: rss

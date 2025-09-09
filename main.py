@@ -15,7 +15,8 @@ ADAPTERS = {
     "greenhouse": greenhouse,
     "workable": workable,
     "ashby": ashby,
-    "workday": workday,   # now live
+    "workday": workday,
+    "workday_gql": workday_gql,   # <— new
     "rss": rss,
 }
 

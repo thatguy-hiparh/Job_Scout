@@ -1,4 +1,4 @@
-import httpx
+import httpx, os, json
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 BASE = "https://api.smartrecruiters.com/v1/companies/{slug}/postings"
@@ -31,10 +31,9 @@ def _city(locobj):
 
 def _iter_company_slugs(company):
     """
-    Support either:
+    Supports:
       slug: "randstad"
-    OR
-      smartrecruiters_slugs: ["adeccoitaly","adecco","adecco-it"]
+      smartrecruiters_slugs: ["randstaditaly","randstad-italia", ...]
     """
     slugs = []
     multi = company.get("smartrecruiters_slugs")
@@ -44,19 +43,22 @@ def _iter_company_slugs(company):
     if isinstance(s, str) and s.strip():
         if s not in slugs:
             slugs.append(s)
-    # fall back to name
     if not slugs and company.get("name"):
         slugs.append(company["name"])
     return slugs
 
 def fetch(company):
     """
-    SmartRecruiters public API
+    SmartRecruiters public API:
       GET /v1/companies/{slug}/postings?limit=&offset=
-    Adds optional company-scoped geo filters:
+    Adds per-company geo controls:
       smartrecruiters_countries: ["Italy","Ireland",...]
       smartrecruiters_cities: ["Milan","Rome",...]
+    NOTE: Country/city are treated as OR (either can match). 'remote' always allowed.
     """
+    debug = os.getenv("DEBUG_SMART","").strip().lower() in ("1","true","yes","on")
+    attempts = []
+
     slugs = _iter_company_slugs(company)
     if not slugs:
         return []
@@ -68,32 +70,39 @@ def fetch(company):
     allowed_cities    = set([c.lower() for c in company.get("smartrecruiters_cities", []) if isinstance(c, str)])
 
     def allow_by_geo(locobj):
+        # If no geo constraints, allow everything
         if not allowed_countries and not allowed_cities:
             return True
         ctry = _country(locobj).lower()
         city = _city(locobj).lower()
-        ok = True
-        if allowed_countries:
-            ok = ok and (ctry in allowed_countries)
-        if allowed_cities:
-            ok = ok and any(x in city for x in allowed_cities)
-        return ok
+        loc_str = _to_loc(locobj).lower()
+        if "remote" in loc_str:
+            return True
+        country_ok = (ctry in allowed_countries) if allowed_countries else False
+        city_ok = any(x in city for x in allowed_cities) if allowed_cities else False
+        # OR logic: either country OR city is enough
+        return country_ok or city_ok
 
     for slug in slugs:
         url = BASE.format(slug=slug)
         offset = 0
         seen_ids = set()
+        got_for_slug = 0
 
         while True:
             try:
                 r = _get(url, params={"limit": limit, "offset": offset})
-                if r.status_code != 200 or "json" not in r.headers.get("Content-Type","").lower():
+                ct = r.headers.get("Content-Type","").lower()
+                if r.status_code != 200 or "json" not in ct:
+                    attempts.append({"slug": slug, "status": r.status_code, "json": ("json" in ct), "items": 0})
                     break
                 data = r.json() or {}
                 items = data.get("content") or data.get("postings") or []
                 if not isinstance(items, list) or not items:
+                    attempts.append({"slug": slug, "status": r.status_code, "json": True, "items": 0})
                     break
 
+                count_this_page = 0
                 for p in items:
                     if not isinstance(p, dict):
                         continue
@@ -108,34 +117,4 @@ def fetch(company):
                     title = p.get("name")
                     loc   = _to_loc(p.get("location") or {})
                     posted= p.get("releasedDate") or p.get("createdOn")
-                    url2  = p.get("applyUrl") or p.get("ref") or p.get("jobAdUrl") or p.get("jobUrl")
-
-                    snippet = ""
-                    ad = p.get("jobAd") or {}
-                    if isinstance(ad, dict):
-                        sections = ad.get("sections") or []
-                        if isinstance(sections, list) and sections:
-                            first = sections[0] or {}
-                            snippet = (first.get("text") or "")[:240]
-
-                    results.append({
-                        "source": "smartrecruiters",
-                        "company": company["name"],
-                        "id": str(pid) if pid is not None else None,
-                        "title": title,
-                        "location": loc,
-                        "remote": isinstance(loc, str) and ("remote" in loc.lower()),
-                        "department": p.get("department") or None,
-                        "team": None,
-                        "url": url2,
-                        "posted_at": posted,
-                        "description_snippet": snippet,
-                    })
-                # paginate
-                if len(items) < limit:
-                    break
-                offset += limit
-            except Exception:
-                break
-
-    return results
+                    url2  = p.get("applyUrl") or p.get("ref") or p.get("jobAdUrl") or p.get(

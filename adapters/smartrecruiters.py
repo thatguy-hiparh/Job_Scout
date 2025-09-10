@@ -8,6 +8,35 @@ HEADERS = {
     "Accept": "application/json, text/plain, */*",
 }
 
+# Minimal name→ISO2 map for common EU/US regions we care about
+NAME_TO_ISO2 = {
+    "italy": "it",
+    "ireland": "ie",
+    "united kingdom": "gb",
+    "uk": "gb",
+    "great britain": "gb",
+    "england": "gb",
+    "scotland": "gb",
+    "wales": "gb",
+    "germany": "de",
+    "spain": "es",
+    "france": "fr",
+    "netherlands": "nl",
+    "portugal": "pt",
+    "switzerland": "ch",
+    "austria": "at",
+    "belgium": "be",
+    "luxembourg": "lu",
+    "poland": "pl",
+    "czechia": "cz",
+    "czech republic": "cz",
+    "romania": "ro",
+    "united states": "us",
+    "usa": "us",
+    "u.s.": "us",
+    "u.s.a.": "us",
+}
+
 @retry(wait=wait_exponential(min=1, max=30), stop=stop_after_attempt(5))
 def _get(url, params=None, timeout=30):
     with httpx.Client(headers=HEADERS, timeout=timeout, follow_redirects=True) as c:
@@ -30,11 +59,6 @@ def _city(locobj):
     return ""
 
 def _iter_company_slugs(company):
-    """
-    Supports:
-      slug: "randstad"
-      smartrecruiters_slugs: ["randstaditaly","randstad-italia", ...]
-    """
     slugs = []
     multi = company.get("smartrecruiters_slugs")
     if isinstance(multi, list) and multi:
@@ -47,15 +71,29 @@ def _iter_company_slugs(company):
         slugs.append(company["name"])
     return slugs
 
+def _normalize_country_tokens(c):
+    """
+    Return a set of tokens that represent this country in common forms:
+      e.g., "Italy" -> {"italy","it"}, "IT" -> {"it","italy"}
+    """
+    c = (c or "").strip().lower()
+    if not c:
+        return set()
+    toks = {c}
+    # If name → ISO
+    if len(c) > 2:
+        iso = NAME_TO_ISO2.get(c)
+        if iso:
+            toks.add(iso)
+    # If ISO → try name (reverse lookup)
+    if len(c) == 2:
+        # add any names that map to this ISO
+        for name, code in NAME_TO_ISO2.items():
+            if code == c:
+                toks.add(name)
+    return toks
+
 def fetch(company):
-    """
-    SmartRecruiters public API:
-      GET /v1/companies/{slug}/postings?limit=&offset=
-    Adds per-company geo controls:
-      smartrecruiters_countries: ["Italy","Ireland",...]
-      smartrecruiters_cities: ["Milan","Rome",...]
-    NOTE: Country/city are treated as OR (either can match). 'remote' always allowed.
-    """
     debug = os.getenv("DEBUG_SMART","").strip().lower() in ("1","true","yes","on")
     attempts = []
 
@@ -66,21 +104,33 @@ def fetch(company):
     limit = 100
     results = []
 
-    allowed_countries = set([c.lower() for c in company.get("smartrecruiters_countries", []) if isinstance(c, str)])
-    allowed_cities    = set([c.lower() for c in company.get("smartrecruiters_cities", []) if isinstance(c, str)])
+    # Build allowed country token set that includes BOTH names and ISO2 codes
+    raw_countries = [c for c in company.get("smartrecruiters_countries", []) if isinstance(c, str)]
+    allowed_country_tokens = set()
+    for rc in raw_countries:
+        allowed_country_tokens |= _normalize_country_tokens(rc)
+
+    # Cities (we'll do substring match, case-insensitive)
+    allowed_cities = set([c.lower() for c in company.get("smartrecruiters_cities", []) if isinstance(c, str)])
 
     def allow_by_geo(locobj):
         # If no geo constraints, allow everything
-        if not allowed_countries and not allowed_cities:
+        if not allowed_country_tokens and not allowed_cities:
             return True
-        ctry = _country(locobj).lower()
+        ctry = _country(locobj)
         city = _city(locobj).lower()
         loc_str = _to_loc(locobj).lower()
         if "remote" in loc_str:
             return True
-        country_ok = (ctry in allowed_countries) if allowed_countries else False
+
+        # country OK if *any* token of the country matches allowed tokens
+        ctry_tokens = _normalize_country_tokens(ctry)
+        country_ok = bool(allowed_country_tokens & ctry_tokens) if allowed_country_tokens else False
+
+        # city OK if any allowed city is a substring of the city string
         city_ok = any(x in city for x in allowed_cities) if allowed_cities else False
-        # OR logic: either country OR city is enough
+
+        # OR logic: country OR city
         return country_ok or city_ok
 
     for slug in slugs:
@@ -148,7 +198,7 @@ def fetch(company):
                 if len(items) < limit:
                     break
                 offset += limit
-            except Exception as e:
+            except Exception:
                 attempts.append({"slug": slug, "status": "error", "json": False, "items": 0})
                 break
 

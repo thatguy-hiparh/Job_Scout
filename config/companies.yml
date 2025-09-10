@@ -228,10 +228,14 @@ targets:
   - name: Randstad
     ats: smartrecruiters
     slug: Randstad4
+    smartrecruiters_countries: ["Italy"]     # keep it tight
+    smartrecruiters_cities: ["Milan","Rome","Turin","Bologna","Florence"]
 
   - name: Adecco
     ats: smartrecruiters
     slug: AdeccoStaffingUSA1
+    smartrecruiters_slugs: ["adeccoitaly","adecco-it","adecco"]  # try these too
+    smartrecruiters_countries: ["Italy","Ireland","United Kingdom","Germany","Spain","France","Netherlands"]
 
   - name: ManpowerGroup
     ats: rss

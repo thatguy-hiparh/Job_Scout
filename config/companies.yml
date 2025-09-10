@@ -227,11 +227,11 @@ targets:
 
   - name: Randstad
     ats: smartrecruiters
-    slug: randstad
+    slug: Randstad4
 
   - name: Adecco
     ats: smartrecruiters
-    slug: adecco
+    slug: AdeccoStaffingUSA1
 
   - name: ManpowerGroup
     ats: rss

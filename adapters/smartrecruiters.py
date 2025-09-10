@@ -117,4 +117,46 @@ def fetch(company):
                     title = p.get("name")
                     loc   = _to_loc(p.get("location") or {})
                     posted= p.get("releasedDate") or p.get("createdOn")
-                    url2  = p.get("applyUrl") or p.get("ref") or p.get("jobAdUrl") or p.get(
+                    url2  = p.get("applyUrl") or p.get("ref") or p.get("jobAdUrl") or p.get("jobUrl")
+
+                    snippet = ""
+                    ad = p.get("jobAd") or {}
+                    if isinstance(ad, dict):
+                        sections = ad.get("sections") or []
+                        if isinstance(sections, list) and sections:
+                            first = sections[0] or {}
+                            snippet = (first.get("text") or "")[:240]
+
+                    results.append({
+                        "source": "smartrecruiters",
+                        "company": company["name"],
+                        "id": str(pid) if pid is not None else None,
+                        "title": title,
+                        "location": loc,
+                        "remote": isinstance(loc, str) and ("remote" in loc.lower()),
+                        "department": p.get("department") or None,
+                        "team": None,
+                        "url": url2,
+                        "posted_at": posted,
+                        "description_snippet": snippet,
+                    })
+                    count_this_page += 1
+
+                got_for_slug += count_this_page
+                attempts.append({"slug": slug, "status": r.status_code, "json": True, "items": count_this_page})
+
+                if len(items) < limit:
+                    break
+                offset += limit
+            except Exception as e:
+                attempts.append({"slug": slug, "status": "error", "json": False, "items": 0})
+                break
+
+        # if we got something for this slug, no need to try alternates
+        if got_for_slug > 0:
+            continue
+
+    if debug:
+        print(f"SMART_DEBUG {company['name']}: {json.dumps(attempts)[:1800]} got={len(results)}")
+
+    return results

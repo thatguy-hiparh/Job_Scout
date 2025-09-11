@@ -287,3 +287,19 @@ targets:
   - name: Sonos
     ats: rss
     homepage: https://www.sonos.com/en-us/careers
+
+ - name: Randstad (Italy)
+    ats: randstad_it
+    base_url: "https://www.randstad.it/offerte-lavoro/"
+    query: ""          # keep broad; filtering happens in filter_jobs()
+    max_pages: 8
+    pause_s: 0.8
+    debug: true        # optional: set to false once verified
+
+  - name: Adecco (Italy)
+    ats: adecco_it
+    base_url: "https://www.adecco.it/offerte-lavoro"
+    query: ""
+    max_pages: 8
+    pause_s: 0.8
+    debug: true

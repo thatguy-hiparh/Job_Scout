@@ -17,8 +17,10 @@ ADAPTERS = {
     "ashby": ashby,
     "workday": workday,
     "workday_gql": workday_gql,
-    "smartrecruiters": smartrecruiters,   # NEW
+    "smartrecruiters": smartrecruiters,
     "rss": rss,
+    "randstad_it": randstad_it,   # ← add this
+    "adecco_it": adecco_it,       # ← add this
 }
 
 def send_email(html):

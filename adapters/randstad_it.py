@@ -173,3 +173,12 @@ def run(source_cfg, keyword_pass, location_pass, recency_pass, debug=False):
         print(f"SMART_FILTER Randstad_IT: pre={pre} kw={len(stage_kw)} loc={len(stage_loc)} date={len(stage_dt)}")
 
     return stage_dt
+    
+def fetch(cfg):
+    # broad scrape; global filtering happens later in normalize/filter_jobs/dedupe
+    base = cfg.get("base_url", "https://www.randstad.it/offerte-lavoro/")
+    query = cfg.get("query")
+    max_pages = int(cfg.get("max_pages", 10))
+    pause = float(cfg.get("pause_s", 0.8))
+    debug = bool(cfg.get("debug", False))
+    return fetch_randstad_it(base=base, query=query, max_pages=max_pages, pause=pause, debug=debug)

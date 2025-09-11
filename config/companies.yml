@@ -288,7 +288,7 @@ targets:
     ats: rss
     homepage: https://www.sonos.com/en-us/careers
 
- - name: Randstad (Italy)
+  - name: Randstad (Italy)
     ats: randstad_it
     base_url: "https://www.randstad.it/offerte-lavoro/"
     query: ""          # keep broad; filtering happens in filter_jobs()

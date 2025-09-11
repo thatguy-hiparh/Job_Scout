@@ -7,3 +7,4 @@ python-dateutil==2.9.*
 Jinja2==3.1.*
 rapidfuzz==3.9.*
 pyYAML==6.0.*
+requests==2.32.*

@@ -1,4 +1,4 @@
-import os, json, httpx
+import os, json, httpx, re
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 BASE = "https://api.smartrecruiters.com/v1/companies/{slug}/postings"
@@ -8,7 +8,7 @@ HEADERS = {
     "Accept": "application/json, text/plain, */*",
 }
 
-# Name → ISO2 (extend as needed)
+# Name → ISO2 (extend if needed)
 NAME_TO_ISO2 = {
     "italy": "it", "italia": "it",
     "ireland": "ie",
@@ -19,16 +19,21 @@ NAME_TO_ISO2 = {
     "united states": "us", "usa": "us", "u.s.": "us", "u.s.a.": "us",
 }
 
+ITALY_CITY_TOKENS = [
+    "milan", "milano", "rome", "roma", "turin", "torino", "bologna", "florence", "firenze",
+    "naples", "napoli", "genoa", "genova", "venice", "venezia", "palermo", "bari", "verona",
+    "parma", "modena", "padova", "pisa", "trieste", "trento", "bolzano", "bergamo", "brescia",
+    "cagliari", "catania", "messina", "lecce", "rimini", "perugia", "reggio emilia", "udine",
+]
+
 @retry(wait=wait_exponential(min=1, max=30), stop=stop_after_attempt(5))
 def _get(url, params=None, timeout=30):
     with httpx.Client(headers=HEADERS, timeout=timeout, follow_redirects=True) as c:
         return c.get(url, params=params or {})
 
 def _val(v):
-    if v is None:
-        return ""
-    if isinstance(v, (int, float)):
-        return str(v)
+    if v is None: return ""
+    if isinstance(v, (int, float)): return str(v)
     return str(v).strip()
 
 def _pick_dict(d, keys):
@@ -38,70 +43,54 @@ def _pick_dict(d, keys):
     return None
 
 def _country_value(locobj):
-    """Try many shapes: 'country', 'countryCode', nested dicts with 'code'/'name'/..."""
-    if not isinstance(locobj, dict):
-        return ""
+    if not isinstance(locobj, dict): return ""
     for k in ("country", "countryCode", "country_code"):
         v = locobj.get(k)
-        if isinstance(v, str):
-            return _val(v)
+        if isinstance(v, str): return _val(v)
         if isinstance(v, dict):
             vv = _pick_dict(v, ("code", "id", "name", "label", "value"))
-            if vv:
-                return _val(vv)
+            if vv: return _val(vv)
     v = locobj.get("country")
     if isinstance(v, dict):
         vv = _pick_dict(v, ("code", "id", "name", "label", "value"))
-        if vv:
-            return _val(vv)
+        if vv: return _val(vv)
     return ""
 
 def _city_value(locobj):
-    if not isinstance(locobj, dict):
-        return ""
+    if not isinstance(locobj, dict): return ""
     for k in ("city", "name", "label"):
         v = locobj.get(k)
-        if isinstance(v, str):
-            return _val(v)
+        if isinstance(v, str): return _val(v)
         if isinstance(v, dict):
             vv = _pick_dict(v, ("name", "label", "value", "city"))
-            if vv:
-                return _val(vv)
+            if vv: return _val(vv)
     return ""
 
 def _region_value(locobj):
-    if not isinstance(locobj, dict):
-        return ""
+    if not isinstance(locobj, dict): return ""
     for k in ("region", "state", "province"):
         v = locobj.get(k)
-        if isinstance(v, str):
-            return _val(v)
+        if isinstance(v, str): return _val(v)
         if isinstance(v, dict):
             vv = _pick_dict(v, ("name", "label", "value", "code", "id"))
-            if vv:
-                return _val(vv)
+            if vv: return _val(vv)
     return ""
 
 def _location_str(locobj):
-    if not isinstance(locobj, dict):
-        return ""
+    if not isinstance(locobj, dict): return ""
     parts = [_city_value(locobj), _region_value(locobj), _country_value(locobj)]
     return ", ".join([p for p in parts if p]).strip()
 
 def _normalize_country_tokens(c):
-    """Return tokens like {'italy','it'} or {'it','italy'} for robust matching."""
     c = _val(c).lower()
-    if not c:
-        return set()
+    if not c: return set()
     toks = {c}
     if len(c) > 2:
         iso = NAME_TO_ISO2.get(c)
-        if iso:
-            toks.add(iso)
+        if iso: toks.add(iso)
     if len(c) == 2:
         for name, code in NAME_TO_ISO2.items():
-            if code == c:
-                toks.add(name)
+            if code == c: toks.add(name)
     return toks
 
 def _iter_company_slugs(company):
@@ -110,9 +99,8 @@ def _iter_company_slugs(company):
     if isinstance(multi, list) and multi:
         slugs.extend([s for s in multi if isinstance(s, str) and s.strip()])
     s = company.get("slug")
-    if isinstance(s, str) and s.strip():
-        if s not in slugs:
-            slugs.append(s)
+    if isinstance(s, str) and s.strip() and s not in slugs:
+        slugs.append(s)
     if not slugs and company.get("name"):
         slugs.append(company["name"])
     return slugs
@@ -125,15 +113,15 @@ def fetch(company):
     if not slugs:
         return []
 
-    # Allowed countries: build token sets AND keep the raw names for substring fallback.
+    # Allowed countries & cities
     raw_countries = [c for c in company.get("smartrecruiters_countries", []) if isinstance(c, str)]
     allowed_country_tokens = set()
     allowed_country_names_lower = set()
     for rc in raw_countries:
         allowed_country_tokens |= _normalize_country_tokens(rc)
         allowed_country_names_lower.add(_val(rc).lower())
-
     allowed_cities = set([c.lower() for c in company.get("smartrecruiters_cities", []) if isinstance(c, str)])
+
     limit = 100
 
     def allow_by_geo(locobj):
@@ -145,16 +133,14 @@ def fetch(company):
         if "remote" in loc_str:
             return True
 
-        # Country logic by tokens
         ctry = _country_value(locobj)
         ctry_tokens = _normalize_country_tokens(ctry)
         country_ok = bool(allowed_country_tokens & ctry_tokens) if allowed_country_tokens else False
 
-        # City logic (substring)
         city = _city_value(locobj).lower()
         city_ok = any(x in city for x in allowed_cities) if allowed_cities else False
 
-        # NEW: fallback — if tokens failed, match country *names* in the full location string
+        # Fallback: country name present in the free-form location string
         name_in_loc = any(name in loc_str for name in allowed_country_names_lower) if allowed_country_names_lower else False
 
         return country_ok or city_ok or name_in_loc
@@ -224,21 +210,40 @@ def fetch(company):
             offset += limit
         return out, got
 
+    # 1) First pass: normal geo-filtered
     results = []
-    # Pass 1: apply geo filter
     for slug in slugs:
         out, _ = fetch_one(slug, geo_filter=True)
         results.extend(out)
 
-    # If nothing, raw probe (no geo) to see where jobs actually are
-    if not results and debug:
+    # 2) If nothing found, raw probe and post-filter by text (Italy/Italia + cities)
+    if not results:
         raw_summary = []
         total = 0
+        raw_items = []
         for slug in slugs:
-            _, got = fetch_one(slug, geo_filter=False)
+            out, got = fetch_one(slug, geo_filter=False)
             total += got
             raw_summary.append({"slug": slug, "raw_items": got})
-        print(f"SMART_RAW {company['name']}: {json.dumps(raw_summary)} total_raw={total}")
+            raw_items.extend(out)
+
+        if debug:
+            print(f"SMART_RAW {company['name']}: {json.dumps(raw_summary)} total_raw={total}")
+
+        if raw_items and (allowed_country_tokens or allowed_cities):
+            # Build text tokens from country names + Italy cities
+            tokens = set(allowed_country_names_lower) | set(ITALY_CITY_TOKENS)
+            # also include ISO2 forms like 'it'
+            tokens |= set([t for t in allowed_country_tokens if len(t) <= 3])
+            def _hits(job):
+                hay = " ".join([
+                    (job.get("location") or ""),
+                    (job.get("title") or ""),
+                    (job.get("description_snippet") or ""),
+                    (job.get("url") or ""),
+                ]).lower()
+                return any(tok in hay for tok in tokens)
+            results = [j for j in raw_items if _hits(j)]
 
     if debug:
         print(f"SMART_DEBUG {company['name']}: {json.dumps(attempts)[:1800]} got={len(results)}")

@@ -227,13 +227,8 @@ targets:
 
   - name: Randstad
     ats: smartrecruiters
-    smartrecruiters_slugs: ["randstad", "randstaditaly", "randstad-italia", "randstaditalia", "randstad-emea", "Randstad4"]
-    smartrecruiters_countries: ["Italy"]   # country-only (OR logic) for first pass
-
-  - name: Adecco
-    ats: smartrecruiters
-    smartrecruiters_slugs: ["adeccoitaly", "adecco-italy", "adeccoitalia", "adecco", "adeccogroup", "adeccoireland", "adecco-uk", "AdeccoStaffingUSA1"]
-    smartrecruiters_countries: ["Italy","Ireland","United Kingdom","Germany","Spain","France","Netherlands","Portugal","Switzerland","Austria","Belgium","Luxembourg","Poland","Czechia","Romania"]
+    smartrecruiters_slugs: ["Randstad4", "randstad", "randstad-emea"]
+    smartrecruiters_countries: ["Italy"]
 
   - name: ManpowerGroup
     ats: rss

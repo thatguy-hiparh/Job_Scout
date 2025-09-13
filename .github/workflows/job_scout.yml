@@ -43,7 +43,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO:  ${{ secrets.EMAIL_TO }}
-          DEBUG_SMART: "1"  # TEMP: enable SmartRecruiters debug
+          DEBUG_SMART: "0"  # TEMP: enable SmartRecruiters debug
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

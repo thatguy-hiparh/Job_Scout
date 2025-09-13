@@ -49,15 +49,17 @@ targets:
     slug: sonymusic
 
   - name: Universal Music Group
-    ats: workday_gql
-    slug: universal-music-group
-    workday_host: umusic
-    workday_tenant: wd5
-    workday_sites: ["UMGUS","UMGUK"]
+  ats: workday
+  workday_tenant: umusic
+  workday_host: umusic.wd5.myworkdayjobs.com
+  # We’ll try these branded sites first, then generic fallbacks internally.
+  workday_sites: ["UMGUS", "UMGUK", "universal-music-group", "UNIVERSAL-MUSIC-GROUP", "Global", "External", "Careers", "Jobs"]
 
-  - name: Warner Music Group
-    ats: rss
-    homepage: https://www.wmg.com/careers
+- name: Warner Music Group
+  ats: workday
+  workday_tenant: wmg
+  workday_host: wmg.wd1.myworkdayjobs.com
+  workday_sites: ["WMGUS", "WMGGLOBAL", "WMG", "Wmg", "Global", "External", "Careers", "Jobs"]
 
   - name: The Orchard (Sony)
     ats: rss

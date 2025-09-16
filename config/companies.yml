@@ -1,22 +1,22 @@
-- name: Randstad
-  ats: smartrecruiters
-  smartrecruiters_slugs: ["Randstad4", "randstad", "randstad-emea"]
-  smartrecruiters_countries: ["Italy"]
+targets:
+  - name: Randstad
+    ats: smartrecruiters
+    smartrecruiters_slugs: ["Randstad4", "randstad", "randstad-emea"]
+    smartrecruiters_countries: ["Italy"]
 
-- name: Universal Music Group
-  ats: workday
-  workday_tenant: umusic
-  workday_host: umusic.wd5.myworkdayjobs.com
-  workday_sites: ["UMGUS", "UMGUK", "universal-music-group", "UNIVERSAL-MUSIC-GROUP", "Global", "External", "Careers", "Jobs"]
+  - name: Universal Music Group
+    ats: workday
+    workday_tenant: umusic
+    workday_host: umusic.wd5.myworkdayjobs.com
+    workday_sites: ["UMGUS", "UMGUK", "universal-music-group", "UNIVERSAL-MUSIC-GROUP", "Global", "External", "Careers", "Jobs"]
 
-- name: Warner Music Group
-  ats: workday
-  workday_tenant: wmg
-  workday_host: wmg.wd1.myworkdayjobs.com
-  workday_sites: ["WMGUS", "WMGGLOBAL", "WMG", "Wmg", "Global", "External", "Careers", "Jobs"]
+  - name: Warner Music Group
+    ats: workday
+    workday_tenant: wmg
+    workday_host: wmg.wd1.myworkdayjobs.com
+    workday_sites: ["WMGUS", "WMGGLOBAL", "WMG", "Wmg", "Global", "External", "Careers", "Jobs"]
 
-# Keep your existing Adecco Italy custom scraper entry below (the one that yields "Adecco (Italy): 8")
-# Example placeholder (uncomment and replace with your actual custom scraper config if needed):
-# - name: Adecco (Italy)
-#   ats: custom
-#   target: adecco_it
+  # Keep your working Adecco Italy custom scraper below (example placeholder):
+  # - name: Adecco (Italy)
+  #   ats: custom
+  #   target: adecco_it

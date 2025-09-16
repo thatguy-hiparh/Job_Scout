@@ -41,8 +41,8 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO:  ${{ secrets.EMAIL_TO }}
-          WORKDAY_DEBUG: "1"         # <— enable for this one run
-          # DEBUG_SMART: "0"          # leave off unless debugging SmartRecruiters
+          WORKDAY_DEBUG: "1"     # leave ON for this run to capture error text
+          # DEBUG_SMART: "0"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

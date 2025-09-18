@@ -43,7 +43,7 @@ BROWSER_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
     "Origin": "https://myworkdayjobs.com",
     "Referer": "https://myworkdayjobs.com/",
-    # The following headers help some Workday edges behave more like a browser
+    # Helps some Workday edges behave like a browser
     "Sec-Fetch-Site": "same-site",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
@@ -87,7 +87,7 @@ def _parse_items(data: Any) -> List[Dict[str, Any]]:
 
 def _extract_location(obj: Dict[str, Any]) -> str:
     locs = obj.get("locations")
-    if isinstance(locs, list) and l
+    if isinstance(locs, list) and locs:
         out = []
         for l in locs:
             if not isinstance(l, dict): continue
@@ -100,7 +100,7 @@ def _extract_location(obj: Dict[str, Any]) -> str:
 
     loc = obj.get("location") or obj.get("primaryLocation")
     if isinstance(loc, dict):
-        city = _norm(loc.get("city") or loc.get("cityName"))
+        city = _norm(loc.get("city") or l.get("cityName")) if (l := loc) else ""
         region = _norm(loc.get("region") or loc.get("state"))
         country = _norm(loc.get("country") or loc.get("countryName") or loc.get("countryCode"))
         s = _join([city, region, country])
@@ -292,7 +292,7 @@ def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
                                     attempts_str = json.dumps(attempts)[:2000]
                                     print(f"WORKDAY_DEBUG {company.get('name')}: tried={attempts_str} got={len(out)}")
                                 return out
-                            break  # after a success attempt (or last failure) move on
+                            break  # after success (or last failure) move on
 
                         if got_this_page == 0:
                             break  # nothing for this path; try next

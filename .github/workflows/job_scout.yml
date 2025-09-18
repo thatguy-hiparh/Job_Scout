@@ -36,13 +36,16 @@ jobs:
 
       - name: Run aggregator
         env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          EMAIL_TO:  ${{ secrets.EMAIL_TO }}
-          WORKDAY_DEBUG: "1"     # leave ON for this run to capture error text
-          # DEBUG_SMART: "0"
+          SMTP_HOST:   ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
+          SMTP_USER:   ${{ secrets.SMTP_USER }}
+          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
+          EMAIL_TO:    ${{ secrets.EMAIL_TO }}
+          WORKDAY_GQL_DEBUG: "1"
+          WD_EARLY_BREAK: "1"
+          WD_MAX_PAGES: "1"
+          WD_MAX_SITES: "6"
+          WD_MAX_HOSTS: "3"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

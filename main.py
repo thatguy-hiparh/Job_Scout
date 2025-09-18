@@ -22,17 +22,20 @@ from adapters import (
     workday_pw,   # NEW
 )
 
+# Map ATS string -> adapter module (module must expose .fetch(company) -> list[dict])
 ADAPTERS = {
-    "lever": lever,
-    "greenhouse": greenhouse,
-    "workable": workable,
-    "ashby": ashby,
-    "workday": workday,
-    "workday_gql": workday_gql,
-    "smartrecruiters": smartrecruiters,
-    "rss": rss,
-    "randstad_it": randstad_it,   # ← add this
-    "adecco_it": adecco_it,       # ← add this
+    "lever":             lever,
+    "greenhouse":        greenhouse,
+    "workable":          workable,
+    "ashby":             ashby,
+    "workday":           workday,        # legacy REST probe
+    "workday_gql":       workday_gql,    # JSON API when accessible
+    "workday_pw":        workday_pw,     # Playwright headless browser (primary for strict tenants)
+    "workday-pw":        workday_pw,     # alias
+    "smartrecruiters":   smartrecruiters,
+    "rss":               rss,
+    "randstad_it":       randstad_it,
+    "adecco_it":         adecco_it,
 }
 
 def send_email(html):

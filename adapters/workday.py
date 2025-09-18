@@ -43,7 +43,7 @@ BROWSER_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
     "Origin": "https://myworkdayjobs.com",
     "Referer": "https://myworkdayjobs.com/",
-    # Helps some Workday edges behave like a browser
+    # Helps some Workday edges behave more like a browser
     "Sec-Fetch-Site": "same-site",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
@@ -100,7 +100,7 @@ def _extract_location(obj: Dict[str, Any]) -> str:
 
     loc = obj.get("location") or obj.get("primaryLocation")
     if isinstance(loc, dict):
-        city = _norm(loc.get("city") or l.get("cityName")) if (l := loc) else ""
+        city = _norm(loc.get("city") or loc.get("cityName"))
         region = _norm(loc.get("region") or loc.get("state"))
         country = _norm(loc.get("country") or loc.get("countryName") or loc.get("countryCode"))
         s = _join([city, region, country])
@@ -198,7 +198,7 @@ def _paths(tenant: str, site: str) -> List[str]:
     return [f"/wday/cxs/{tenant}/{site}/jobs", f"/wday/cxs/{tenant}/jobs"]
 
 def _warmup_urls(host: str, site: str) -> List[str]:
-    # Hit the public site pages to get cookies set (esp. wd-browser-id)
+    # Hit public pages to set cookies (esp. wd-browser-id)
     return [
         f"https://{host}/{site}",
         f"https://{host}/en-US/{site}",
@@ -237,19 +237,18 @@ def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
     hosts = _hosts(company)
     sites  = _site_candidates(company)
 
-    # Pre-generate a browser id cookie (helps some tenants)
     wd_browser_id = str(uuid.uuid4())
 
     with httpx.Client(headers=BROWSER_HEADERS, timeout=TIMEOUT_SECS, follow_redirects=True) as client:
-        # seed cookies
-        client.cookies.set("wd-browser-id", wd_browser_id, domain=None)
+        # seed cookie WITHOUT a domain argument (fixes NoneType.startswith crash)
+        client.cookies.set("wd-browser-id", wd_browser_id)
 
         for host in hosts:
             for site in sites:
-                # --- Warm-up: visit public pages to get proper cookies ---
+                # Warm-up public pages to acquire additional cookies
                 for wu in _warmup_urls(host, site):
                     try:
-                        client.get(wu)  # ignore status; best-effort
+                        client.get(wu)  # best-effort warmup
                     except Exception:
                         pass
 

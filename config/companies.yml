@@ -1,17 +1,17 @@
 targets:
   - name: Randstad
     ats: smartrecruiters
-    smartrecruiters_slugs: ["randstad","randstaditaly","randstad-italia","randstaditalia","randstad-emea","Randstad4"]
+    smartrecruiters_slugs: ["Randstad4","randstad","randstaditaly","randstad-italia","randstaditalia","randstad-emea"]
     smartrecruiters_countries: ["Italy"]
 
   - name: Universal Music Group
-    ats: workday_gql
+    ats: workday_pw
     workday_tenant: umusic
     workday_host: umusic.wd5.myworkdayjobs.com
-    workday_sites: ["UMGUS","UMGUK","External","Global"]
+    workday_sites: ["UMGUS","UMGUK","External","Global","universal-music-group","UNIVERSAL-MUSIC-GROUP"]
 
   - name: Warner Music Group
-    ats: workday_gql
+    ats: workday_pw
     workday_tenant: wmg
     workday_host: wmg.wd1.myworkdayjobs.com
-    workday_sites: ["WMGUS","WMGGLOBAL","External","Global"]
+    workday_sites: ["WMGUS","WMGGLOBAL","External","Global","WMG","Wmg"]

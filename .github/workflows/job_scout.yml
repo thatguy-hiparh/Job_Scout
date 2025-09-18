@@ -34,6 +34,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install Playwright browsers (Chromium only)
+        run: |
+          python -m playwright install --with-deps chromium
+
       - name: Run aggregator
         env:
           SMTP_HOST:   ${{ secrets.SMTP_HOST }}
@@ -41,11 +45,11 @@ jobs:
           SMTP_USER:   ${{ secrets.SMTP_USER }}
           SMTP_PASS:   ${{ secrets.SMTP_PASS }}
           EMAIL_TO:    ${{ secrets.EMAIL_TO }}
-          WORKDAY_GQL_DEBUG: "1"
-          WD_EARLY_BREAK: "1"
-          WD_MAX_PAGES: "1"
+          PW_HEADLESS: "1"
+          WD_EARLY_BREAK: "1"   # keep ON for first success; we'll turn off later
           WD_MAX_SITES: "6"
           WD_MAX_HOSTS: "3"
+          WD_LIMIT: "200"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

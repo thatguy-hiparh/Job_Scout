@@ -1,13 +1,13 @@
 import os
 import json
 import uuid
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import httpx
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
-# Two path shapes to probe:
-#  A) https://{host}/wday/cxs/{tenant}/{site}/jobs
-#  B) https://{host}/wday/cxs/{tenant}/jobs
+# Probe shapes:
+#   A) https://{host}/wday/cxs/{tenant}/{site}/jobs
+#   B) https://{host}/wday/cxs/{tenant}/jobs
 
 def _env_flag(name: str, default: bool = False) -> bool:
     v = os.getenv(name, "")
@@ -27,23 +27,23 @@ def _env_list(name: str, default: List[str]) -> List[str]:
     return [p for p in parts if p]
 
 WORKDAY_DEBUG   = _env_flag("WORKDAY_DEBUG", False)
-WD_MAX_HOSTS    = _env_int("WD_MAX_HOSTS",  2)     # throttled by default for debug
-WD_MAX_SITES    = _env_int("WD_MAX_SITES",  3)
+WD_MAX_HOSTS    = _env_int("WD_MAX_HOSTS",  3)  # small fan-out while debugging
+WD_MAX_SITES    = _env_int("WD_MAX_SITES",  5)
 WD_MAX_PAGES    = _env_int("WD_MAX_PAGES",  1)
 WD_EARLY_BREAK  = _env_flag("WD_EARLY_BREAK", True)
 WD_LOCALES      = _env_list("WD_LOCALES", ["none","en-US","en_GB","locale:en_US","locale:en-GB"])
 LIMIT           = 200
-TIMEOUT_SECS    = 15.0  # faster fail for debug
+TIMEOUT_SECS    = 18.0
 
-BROWSER_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+BASE_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.8",
     "X-Requested-With": "XMLHttpRequest",
-    "Origin": "https://myworkdayjobs.com",
-    "Referer": "https://myworkdayjobs.com/",
-    # Helps some Workday edges behave more like a browser
+    # These must be *per-host* below.
+    # "Origin": "https://{host}",
+    # "Referer": "https://{host}/{site}",
     "Sec-Fetch-Site": "same-site",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
@@ -152,8 +152,8 @@ def _extract_snippet(obj: Dict[str, Any]) -> str:
 
 @retry(wait=wait_exponential(min=1, max=8), stop=stop_after_attempt(3),
        retry=retry_if_exception_type(HttpRetriableError))
-def _get(client: httpx.Client, url: str, params: Dict[str, Any]) -> httpx.Response:
-    r = client.get(url, params=params)
+def _get(client: httpx.Client, url: str, params: Dict[str, Any], host_headers: Dict[str,str]) -> httpx.Response:
+    r = client.get(url, params=params, headers=host_headers)
     if r.status_code == 429 or (500 <= r.status_code < 600):
         raise HttpRetriableError(f"{r.status_code} for {url}")
     return r
@@ -197,13 +197,24 @@ def _hosts(company: Dict[str, Any]) -> List[str]:
 def _paths(tenant: str, site: str) -> List[str]:
     return [f"/wday/cxs/{tenant}/{site}/jobs", f"/wday/cxs/{tenant}/jobs"]
 
-def _warmup_urls(host: str, site: str) -> List[str]:
-    # Hit public pages to set cookies (esp. wd-browser-id)
-    return [
+def _warmup(client: httpx.Client, host: str, site: str) -> None:
+    # Visit public pages *on that host* so cookies get scoped to host.
+    warm_urls = [
         f"https://{host}/{site}",
-        f"https://{host}/en-US/{site}",
+        f"https://{host}/wday/authenticate",
         f"https://{host}/",
     ]
+    for u in warm_urls:
+        try:
+            client.get(u, headers={"User-Agent": BASE_HEADERS["User-Agent"]}, follow_redirects=True)
+        except Exception:
+            pass
+
+def _host_headers(host: str, site: str) -> Dict[str,str]:
+    hh = dict(BASE_HEADERS)
+    hh["Origin"]  = f"https://{host}"
+    hh["Referer"] = f"https://{host}/{site}"
+    return hh
 
 def _map_item(host: str, company: Dict[str, Any], itm: Dict[str, Any]) -> Dict[str, Any]:
     url2 = _extract_url(itm)
@@ -239,18 +250,19 @@ def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     wd_browser_id = str(uuid.uuid4())
 
-    with httpx.Client(headers=BROWSER_HEADERS, timeout=TIMEOUT_SECS, follow_redirects=True) as client:
-        # seed cookie WITHOUT a domain argument (fixes NoneType.startswith crash)
-        client.cookies.set("wd-browser-id", wd_browser_id)
-
+    # One client per company to reuse session
+    with httpx.Client(timeout=TIMEOUT_SECS, follow_redirects=True) as client:
         for host in hosts:
+            # IMPORTANT: cookie must be scoped to the *host*
+            try:
+                client.cookies.set("wd-browser-id", wd_browser_id, domain=host)
+            except Exception:
+                # best-effort
+                client.cookies.set("wd-browser-id", wd_browser_id)
+
             for site in sites:
-                # Warm-up public pages to acquire additional cookies
-                for wu in _warmup_urls(host, site):
-                    try:
-                        client.get(wu)  # best-effort warmup
-                    except Exception:
-                        pass
+                _warmup(client, host, site)
+                hh = _host_headers(host, site)
 
                 for path in _paths(tenant, site):
                     offset = 0
@@ -262,7 +274,7 @@ def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
                             params.update(_locale_params(tok))
                             url = f"https://{host}{path}"
                             try:
-                                r = _get(client, url, params)
+                                r = _get(client, url, params, hh)
                             except HttpRetriableError:
                                 attempts.append({"u": url, "p": params, "s": "5xx/429", "items": 0})
                                 continue
@@ -275,7 +287,12 @@ def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
                                 attempts.append({"u": url, "p": params, "s": r.status_code, "items": 0})
                                 continue
 
-                            data = r.json()
+                            try:
+                                data = r.json()
+                            except Exception as e:
+                                attempts.append({"u": url, "p": params, "s": "bad-json", "err": str(e), "items": 0})
+                                continue
+
                             items = _parse_items(data)
                             if not items:
                                 attempts.append({"u": url, "p": params, "s": r.status_code, "items": 0})
@@ -291,10 +308,10 @@ def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
                                     attempts_str = json.dumps(attempts)[:2000]
                                     print(f"WORKDAY_DEBUG {company.get('name')}: tried={attempts_str} got={len(out)}")
                                 return out
-                            break  # after success (or last failure) move on
+                            break  # after a success attempt (or last failure) move on
 
                         if got_this_page == 0:
-                            break  # nothing for this path; try next
+                            break  # try next PATH or SITE
                         pages_done += 1
                         if got_this_page < LIMIT:
                             break

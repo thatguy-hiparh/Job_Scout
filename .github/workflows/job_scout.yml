@@ -3,18 +3,19 @@ name: job_scout_daily
 on:
   schedule:
     - cron: "0 7 * * *"   # 07:00 UTC ≈ 09:00 Europe/Rome
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     concurrency:
       group: job_scout_daily
       cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -34,23 +35,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright browsers (Chromium only)
-        run: |
-          python -m playwright install --with-deps chromium
-
       - name: Run aggregator
         env:
-    SMTP_HOST:   ${{ secrets.SMTP_HOST }}
-    SMTP_PORT:   ${{ secrets.SMTP_PORT }}
-    SMTP_USER:   ${{ secrets.SMTP_USER }}
-    SMTP_PASS:   ${{ secrets.SMTP_PASS }}
-    EMAIL_TO:    ${{ secrets.EMAIL_TO }}
-    PW_HEADLESS: "1"
-    WD_EARLY_BREAK: "1"
-    WD_MAX_SITES: "6"
-    WD_MAX_HOSTS: "1"
-    WD_LIMIT: "200"
-    WORKDAY_PW_DEBUG: "1"
+          SMTP_HOST:   ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
+          SMTP_USER:   ${{ secrets.SMTP_USER }}
+          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
+          EMAIL_TO:    ${{ secrets.EMAIL_TO }}
+          PW_HEADLESS: "1"
+          WD_EARLY_BREAK: "1"
+          WD_MAX_SITES: "6"
+          WD_MAX_HOSTS: "1"
+          WD_LIMIT: "200"
+          WORKDAY_PW_DEBUG: "1"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

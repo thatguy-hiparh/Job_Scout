@@ -1,33 +1,67 @@
 targets:
+  # --- SmartRecruiters ---
   - name: Randstad
     ats: smartrecruiters
-    smartrecruiters_slugs: ["Randstad4","randstad","randstaditaly","randstad-italia","randstaditalia","randstad-emea"]
-    smartrecruiters_countries: ["Italy"]
+    smartrecruiters_slugs:
+      - randstad
+      - randstaditaly
+      - randstad-italia
+      - randstaditalia
+      - randstad-emea
+      - Randstad4
+    smartrecruiters_countries:
+      - Italy
 
+  - name: Adecco
+    ats: smartrecruiters
+    smartrecruiters_slugs:
+      - adeccoitaly
+      - adecco-italy
+      - adeccoitalia
+      - adecco
+      - adeccogroup
+      - adeccoireland
+      - adecco-uk
+      - AdeccoStaffingUSA1
+    smartrecruiters_countries:
+      - Italy
+      - Ireland
+      - United Kingdom
+      - Germany
+      - Spain
+      - France
+      - Netherlands
+      - Portugal
+      - Switzerland
+      - Austria
+      - Belgium
+      - Luxembourg
+      - Poland
+      - Czechia
+      - Romania
+
+  # --- Workday (Playwright) ---
   - name: Universal Music Group
-  ats: workday_pw
-  # hosts we know they use (tenant "umusic" will be derived automatically)
-  workday_hosts:
-    - umusic.wd5.myworkdayjobs.com
-    - umusic.wd1.myworkdayjobs.com
-  # common site keys seen on their Workday
-  workday_sites:
-    - UMGUS
-    - UMGUK
-    - External
-    - Global
-    - universal-music-group
-    - UNIVERSAL-MUSIC-GROUP
+    ats: workday_pw
+    workday_hosts:
+      - umusic.wd5.myworkdayjobs.com
+      - umusic.wd1.myworkdayjobs.com
+    workday_sites:
+      - UMGUS
+      - UMGUK
+      - External
+      - Global
+      - universal-music-group
+      - UNIVERSAL-MUSIC-GROUP
 
-- name: Warner Music Group
-  ats: workday_pw
-  # tenant "wmg" will be derived automatically
-  workday_hosts:
-    - wmg.wd1.myworkdayjobs.com
-  workday_sites:
-    - WMGUS
-    - WMGGLOBAL
-    - External
-    - Global
-    - WMG
-    - Wmg
+  - name: Warner Music Group
+    ats: workday_pw
+    workday_hosts:
+      - wmg.wd1.myworkdayjobs.com
+    workday_sites:
+      - WMGUS
+      - WMGGLOBAL
+      - External
+      - Global
+      - WMG
+      - Wmg

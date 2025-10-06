@@ -1,40 +1,42 @@
 # adapters/workday_pw.py
 import os
-import time
 from urllib.parse import urljoin
 
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
-# Read tuning knobs from env (safe defaults)
-PW_HEADLESS = os.getenv("PW_HEADLESS", "1") == "1"
-WD_MAX_PAGES = int(os.getenv("WD_MAX_PAGES", "3"))
-WD_LIMIT     = int(os.getenv("WD_LIMIT", "200"))
-WD_EARLY_BREAK = os.getenv("WD_EARLY_BREAK", "1") == "1"
-WORKDAY_PW_DEBUG = os.getenv("WORKDAY_PW_DEBUG", "0") == "1"
+# Env knobs
+PW_HEADLESS       = os.getenv("PW_HEADLESS", "1") == "1"
+WD_MAX_PAGES      = int(os.getenv("WD_MAX_PAGES", "3"))
+WD_LIMIT          = int(os.getenv("WD_LIMIT", "200"))
+WD_EARLY_BREAK    = os.getenv("WD_EARLY_BREAK", "1") == "1"
+WORKDAY_PW_DEBUG  = os.getenv("WORKDAY_PW_DEBUG", "0") == "1"
 
-# Common Workday selectors
-SEL_JOB_TILE   = '[data-automation-id="jobTile"]'
-SEL_JOB_TITLE  = 'a[data-automation-id="jobTitle"]'
-SEL_LOCATION   = '[data-automation-id="locations"]'
-SEL_POSTED     = '[data-automation-id="postedOn"]'
-SEL_NEXT_PAGE  = 'button[aria-label="Next Page"]'
+# Public UI selectors (not the /wday/cxs/ JSON app shell)
+SEL_JOB_TILE      = '[data-automation-id="jobTile"]'
+SEL_JOB_TITLE     = 'a[data-automation-id="jobTitle"]'
+SEL_LOCATION      = '[data-automation-id="locations"]'
+SEL_POSTED        = '[data-automation-id="postedOn"]'
+SEL_NEXT_PAGE_BTN = 'button[aria-label="Next Page"]'
 
-# A few likely cookie/consent buttons (click-if-present; ignore errors)
-CONSENT_CANDIDATES = [
+# Fallback selectors seen on some tenants
+FALLBACK_TITLE_LINKS = 'a[data-automation-id="jobTitle"], a[role="link"][data-automation-id="jobTitle"]'
+FALLBACK_TILE        = '[data-automation-id="jobResults"] [data-automation-id="jobTile"], [data-automation-id="jobPosting"]'
+
+CONSENT_BUTTONS = [
     'button:has-text("Accept")',
     'button:has-text("I Accept")',
     'button:has-text("Allow all")',
     'button:has-text("Agree")',
+    'button:has-text("Accept all")',
 ]
 
-def _debug(msg):
+def _d(msg):
     if WORKDAY_PW_DEBUG:
         print(msg)
 
-def _safe_text(el):
+def _safe_text(loc):
     try:
-        t = el.inner_text().strip()
-        return " ".join(t.split())
+        return " ".join(loc.inner_text().split())
     except Exception:
         return ""
 
@@ -47,130 +49,158 @@ def _click_if_present(page, selector):
         pass
     return False
 
-def _scrape_listing_page(page, base_url, company, collected):
-    """Scrape a single listing page into `collected` (list of job dicts)."""
-    jobs_this_page = 0
-    tiles = page.locator(SEL_JOB_TILE)
-    count = tiles.count()
-    for i in range(count):
-        if len(collected) >= WD_LIMIT:
-            break
-        tile = tiles.nth(i)
-        # Title + URL
-        title_el = tile.locator(SEL_JOB_TITLE)
-        if not title_el.count():
-            continue
-        title = _safe_text(title_el.first)
-        href = title_el.first.get_attribute("href") or ""
-        url = urljoin(base_url, href)
-
-        # Location
-        loc = _safe_text(tile.locator(SEL_LOCATION).first)
-
-        # Posted date (if available)
-        posted = _safe_text(tile.locator(SEL_POSTED).first)
-
-        collected.append({
-            "title": title,
-            "company": company,
-            "location": loc,
-            "posted": posted,
-            "url": url,
-            "source": "workday",
-        })
-        jobs_this_page += 1
-    return jobs_this_page
-
-def _open_listing(page, url):
-    """Open a listing page and wait for job tiles to appear (best-effort)."""
-    page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    # Kill various popups that block scrolling / loading
-    for sel in CONSENT_CANDIDATES:
-        _click_if_present(page, sel)
-    # Workday can lazy-load; give it a moment and try to detect tiles.
+def _wait_for_jobs(page):
+    """Wait a bit for either canonical or fallback job elements."""
     try:
         page.wait_for_selector(SEL_JOB_TILE, timeout=12000)
+        return True
     except PWTimeout:
-        # Sometimes tiles render after a scroll
+        # Nudge lazy-loading
         try:
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_selector(SEL_JOB_TILE, timeout=8000)
-        except PWTimeout:
+        except Exception:
             pass
+        try:
+            page.wait_for_selector(FALLBACK_TILE, timeout=8000)
+            return True
+        except PWTimeout:
+            return False
+
+def _scrape_current_page(page, base_url, company, sink):
+    found = 0
+    tiles = page.locator(SEL_JOB_TILE)
+    count = tiles.count()
+    if count == 0:
+        # Fallback: walk title links if we didn't detect tiles
+        links = page.locator(FALLBACK_TITLE_LINKS)
+        for i in range(min(links.count(), max(0, WD_LIMIT - len(sink)))):
+            a = links.nth(i)
+            href = a.get_attribute("href") or ""
+            title = _safe_text(a)
+            url = urljoin(base_url, href)
+            if not title or not href:
+                continue
+            sink.append({
+                "title": title,
+                "company": company,
+                "location": "",
+                "posted": "",
+                "url": url,
+                "source": "workday",
+            })
+            found += 1
+        return found
+
+    for i in range(count):
+        if len(sink) >= WD_LIMIT:
+            break
+        tile = tiles.nth(i)
+        title_el = tile.locator(SEL_JOB_TITLE).first
+        if not title_el or title_el.count() == 0:
+            continue
+        title = _safe_text(title_el)
+        href = title_el.get_attribute("href") or ""
+        url = urljoin(base_url, href)
+        loc = _safe_text(tile.locator(SEL_LOCATION).first)
+        posted = _safe_text(tile.locator(SEL_POSTED).first)
+        if title and href:
+            sink.append({
+                "title": title,
+                "company": company,
+                "location": loc,
+                "posted": posted,
+                "url": url,
+                "source": "workday",
+            })
+            found += 1
+    return found
+
+def _open(page, url):
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    # clear cookie banners if any
+    for sel in CONSENT_BUTTONS:
+        _click_if_present(page, sel)
 
 def fetch(company_cfg):
     """
-    company_cfg fields we rely on:
+    company_cfg:
       - name
       - ats: 'workday_pw'
       - workday_hosts: ['umusic.wd5.myworkdayjobs.com', ...]
-      - workday_sites: ['UMGUS', 'UMGUK', 'External', ...]
+      - workday_sites: ['UMGUS', 'UMGUK', ...]
+      - optional: workday_tenant (overrides tenant derivation)
     """
-    name = company_cfg.get("name", "Unknown")
-    hosts = company_cfg.get("workday_hosts", []) or []
-    sites = company_cfg.get("workday_sites", []) or []
-    # Derive tenant (prefix of host, e.g., umusic.wd5.myworkdayjobs.com -> umusic)
-    # If tenant is explicitly provided, prefer that:
+    name  = company_cfg.get("name", "Unknown")
+    hosts = company_cfg.get("workday_hosts") or []
+    sites = company_cfg.get("workday_sites") or []
     tenant = company_cfg.get("workday_tenant")
 
-    results = []
     tried = []
+    out = []
+
+    # Candidate public UI URL patterns per host/site
+    def url_candidates(host, site, tnt):
+        # Workday public app usually lives at /{site} (locale often implicit)
+        base1 = f"https://{host}/{site}"
+        base2 = f"https://{host}/{site}/"  # trailing slash variant
+        # some tenants expose /{site}/careers or /{site}/jobs
+        base3 = f"https://{host}/{site}/careers"
+        base4 = f"https://{host}/{site}/jobs"
+        # absolute fallback to the cxs app shell (rarely renders full UI, but try)
+        base5 = f"https://{host}/wday/cxs/{tnt}/{site}"
+        return [base1, base2, base3, base4, base5]
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=PW_HEADLESS)
-        context = browser.new_context()
-        page = context.new_page()
+        ctx = browser.new_context()
+        page = ctx.new_page()
 
         for host in hosts:
-            # derive tenant if needed
             tnt = tenant or (host.split(".", 1)[0] if "." in host else "")
             for site in sites:
-                if len(results) >= WD_LIMIT:
+                if len(out) >= WD_LIMIT:
                     break
-
-                base = f"https://{host}/wday/cxs/{tnt}/{site}"
+                items_before = len(out)
                 status = "ok"
-                items_before = len(results)
-                try:
-                    _open_listing(page, base)
+                got_items = 0
 
-                    # Page 1 + pagination
-                    pages_done = 0
-                    while pages_done < WD_MAX_PAGES and len(results) < WD_LIMIT:
-                        got = _scrape_listing_page(page, base, name, results)
-                        pages_done += 1
-                        # Early-break if nothing found (helps on bad site keys)
-                        if got == 0 and WD_EARLY_BREAK:
-                            break
-                        # Next page?
-                        next_btn = page.locator(SEL_NEXT_PAGE)
-                        if next_btn.count() and next_btn.first.is_enabled():
-                            try:
-                                next_btn.first.click(timeout=3000)
-                                # wait a hair for new tiles to render
-                                page.wait_for_timeout(800)
-                                page.wait_for_selector(SEL_JOB_TILE, timeout=6000)
-                            except Exception:
+                for candidate in url_candidates(host, site, tnt):
+                    try:
+                        _open(page, candidate)
+                        if not _wait_for_jobs(page):
+                            continue
+
+                        pages = 0
+                        while pages < WD_MAX_PAGES and len(out) < WD_LIMIT:
+                            added = _scrape_current_page(page, candidate, name, out)
+                            got_items += added
+                            pages += 1
+                            if added == 0 and WD_EARLY_BREAK:
                                 break
-                        else:
+                            # paginate if possible
+                            next_btn = page.locator(SEL_NEXT_PAGE_BTN)
+                            if next_btn.count() and next_btn.first.is_enabled():
+                                try:
+                                    next_btn.first.click(timeout=2000)
+                                    page.wait_for_timeout(600)
+                                    if not _wait_for_jobs(page):
+                                        break
+                                except Exception:
+                                    break
+                            else:
+                                break
+                        # If we got anything from this candidate, stop trying other variants for this site
+                        if got_items > 0:
                             break
-                except Exception as e:
-                    status = f"error:{type(e).__name__}"
+                    except Exception as e:
+                        status = f"error:{type(e).__name__}"
 
-                items_after = len(results)
-                got_items = items_after - items_before
-                tried.append({
-                    "host": host,
-                    "site": site,
-                    "url": base,
-                    "status": status,
-                    "items": got_items
-                })
+                tried.append({"host": host, "site": site, "url": "…", "status": status, "items": got_items})
 
-        context.close()
+        ctx.close()
         browser.close()
 
     if WORKDAY_PW_DEBUG:
-        print(f"WORKDAY_PW_DEBUG {name}: tried={tried} got={len(results)}")
+        print(f"WORKDAY_PW_DEBUG {name}: tried={tried} got={len(out)}")
 
-    return results
+    return out

@@ -43,10 +43,10 @@ targets:
   # --- Workday (Playwright) ---
   - name: Universal Music Group
     ats: workday_pw
-    workday_hosts:
+    workday_pw_hosts:
       - umusic.wd5.myworkdayjobs.com
       - umusic.wd1.myworkdayjobs.com
-    workday_sites:
+    workday_pw_sites:
       - UMGUS
       - UMGUK
       - External
@@ -56,9 +56,9 @@ targets:
 
   - name: Warner Music Group
     ats: workday_pw
-    workday_hosts:
+    workday_pw_hosts:
       - wmg.wd1.myworkdayjobs.com
-    workday_sites:
+    workday_pw_sites:
       - WMGUS
       - WMGGLOBAL
       - External

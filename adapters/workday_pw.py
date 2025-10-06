@@ -1,176 +1,176 @@
+# adapters/workday_pw.py
 import os
-from typing import Dict, List, Any
-from playwright.sync_api import sync_playwright
+import time
+from urllib.parse import urljoin
 
-TIMEOUT_MS = 30000
-PW_HEADLESS = (os.getenv("PW_HEADLESS", "1").strip().lower() in ("1","true","yes","on"))
-LIMIT = int(os.getenv("WD_LIMIT", "200"))
-MAX_SITES = int(os.getenv("WD_MAX_SITES", "6"))
-MAX_HOSTS = int(os.getenv("WD_MAX_HOSTS", "3"))
-EARLY_BREAK = (os.getenv("WD_EARLY_BREAK","1").strip().lower() in ("1","true","yes","on"))
+from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
-def _norm(x: Any) -> str:
-    if x is None: return ""
-    if isinstance(x, (int, float)): return str(x)
-    return str(x).strip()
+# Read tuning knobs from env (safe defaults)
+PW_HEADLESS = os.getenv("PW_HEADLESS", "1") == "1"
+WD_MAX_PAGES = int(os.getenv("WD_MAX_PAGES", "3"))
+WD_LIMIT     = int(os.getenv("WD_LIMIT", "200"))
+WD_EARLY_BREAK = os.getenv("WD_EARLY_BREAK", "1") == "1"
+WORKDAY_PW_DEBUG = os.getenv("WORKDAY_PW_DEBUG", "0") == "1"
 
-def _join(parts: List[str], sep=", ") -> str:
-    return sep.join([p for p in parts if p])
+# Common Workday selectors
+SEL_JOB_TILE   = '[data-automation-id="jobTile"]'
+SEL_JOB_TITLE  = 'a[data-automation-id="jobTitle"]'
+SEL_LOCATION   = '[data-automation-id="locations"]'
+SEL_POSTED     = '[data-automation-id="postedOn"]'
+SEL_NEXT_PAGE  = 'button[aria-label="Next Page"]'
 
-def _sites(company: Dict[str, Any]) -> List[str]:
-    sites: List[str] = []
-    cfg = company.get("workday_sites")
-    if isinstance(cfg, list) and cfg:
-        sites.extend([s for s in cfg if isinstance(s, str) and s.strip()])
+# A few likely cookie/consent buttons (click-if-present; ignore errors)
+CONSENT_CANDIDATES = [
+    'button:has-text("Accept")',
+    'button:has-text("I Accept")',
+    'button:has-text("Allow all")',
+    'button:has-text("Agree")',
+]
 
-    name = (company.get("name") or "").lower()
-    if "universal" in name or "umg" in name:
-        for s in ("UMGUS","UMGUK","universal-music-group","UNIVERSAL-MUSIC-GROUP","External","Global"):
-            if s not in sites: sites.append(s)
-    if "warner" in name or "wmg" in name:
-        for s in ("WMGUS","WMGGLOBAL","WMG","Wmg","External","Global"):
-            if s not in sites: sites.append(s)
+def _debug(msg):
+    if WORKDAY_PW_DEBUG:
+        print(msg)
 
-    # Generic fallbacks at the end
-    for s in ("External","Global","Careers","Jobs","Job","JobBoard"):
-        if s not in sites: sites.append(s)
+def _safe_text(el):
+    try:
+        t = el.inner_text().strip()
+        return " ".join(t.split())
+    except Exception:
+        return ""
 
-    return sites[:MAX_SITES]
+def _click_if_present(page, selector):
+    try:
+        if page.locator(selector).first.is_visible():
+            page.locator(selector).first.click(timeout=1000)
+            return True
+    except Exception:
+        pass
+    return False
 
-def _hosts(company: Dict[str, Any]) -> List[str]:
-    explicit: List[str] = []
-    h = company.get("workday_host")
-    if isinstance(h, str) and h.strip():
-        explicit.append(h.strip())
-    hs = company.get("workday_hosts")
-    if isinstance(hs, list) and hs:
-        for it in hs:
-            if isinstance(it, str) and it.strip() and it.strip() not in explicit:
-                explicit.append(it.strip())
+def _scrape_listing_page(page, base_url, company, collected):
+    """Scrape a single listing page into `collected` (list of job dicts)."""
+    jobs_this_page = 0
+    tiles = page.locator(SEL_JOB_TILE)
+    count = tiles.count()
+    for i in range(count):
+        if len(collected) >= WD_LIMIT:
+            break
+        tile = tiles.nth(i)
+        # Title + URL
+        title_el = tile.locator(SEL_JOB_TITLE)
+        if not title_el.count():
+            continue
+        title = _safe_text(title_el.first)
+        href = title_el.first.get_attribute("href") or ""
+        url = urljoin(base_url, href)
 
-    if explicit:
-        return explicit[:MAX_HOSTS]
+        # Location
+        loc = _safe_text(tile.locator(SEL_LOCATION).first)
 
-    # Guess from tenant only if no explicit hosts
-    out: List[str] = []
-    tenant = (company.get("workday_tenant") or "").strip().lower()
-    if tenant:
-        for shard in ("wd1","wd5","wd3","wd6"):  # avoid wd2 noise
-            out.append(f"{tenant}.{shard}.myworkdayjobs.com")
-    if not out:
-        out.append("myworkdayjobs.com")
-    return out[:MAX_HOSTS]
+        # Posted date (if available)
+        posted = _safe_text(tile.locator(SEL_POSTED).first)
 
-def _map_node(host: str, company: Dict[str, Any], node: Dict[str, Any]) -> Dict[str, Any]:
-    locs = node.get("locations") or []
-    loc_out: List[str] = []
-    if isinstance(locs, list):
-        for l in locs:
-            if isinstance(l, dict):
-                city = _norm(l.get("city"))
-                region = _norm(l.get("region"))
-                country = _norm(l.get("country") or l.get("countryCode"))
-                loc_out.append(_join([city, region, country]))
-    location = "; ".join([p for p in loc_out if p]) if loc_out else ""
+        collected.append({
+            "title": title,
+            "company": company,
+            "location": loc,
+            "posted": posted,
+            "url": url,
+            "source": "workday",
+        })
+        jobs_this_page += 1
+    return jobs_this_page
 
-    url = _norm(node.get("externalUrl") or node.get("applyUrl") or "")
-    if url.startswith("/"):
-        url = f"https://{host}{url}"
+def _open_listing(page, url):
+    """Open a listing page and wait for job tiles to appear (best-effort)."""
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    # Kill various popups that block scrolling / loading
+    for sel in CONSENT_CANDIDATES:
+        _click_if_present(page, sel)
+    # Workday can lazy-load; give it a moment and try to detect tiles.
+    try:
+        page.wait_for_selector(SEL_JOB_TILE, timeout=12000)
+    except PWTimeout:
+        # Sometimes tiles render after a scroll
+        try:
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_selector(SEL_JOB_TILE, timeout=8000)
+        except PWTimeout:
+            pass
 
-    return {
-        "source": "workday_pw",
-        "company": company.get("name"),
-        "id": _norm(node.get("id")) or None,
-        "title": _norm(node.get("title")),
-        "location": location,
-        "remote": False,
-        "department": _norm(node.get("department") or node.get("jobFamily") or node.get("category")),
-        "team": None,
-        "url": url or None,
-        "posted_at": _norm(node.get("postedOn")) or None,
-        "description_snippet": _norm(node.get("jobPostingDescription"))[:240],
-    }
+def fetch(company_cfg):
+    """
+    company_cfg fields we rely on:
+      - name
+      - ats: 'workday_pw'
+      - workday_hosts: ['umusic.wd5.myworkdayjobs.com', ...]
+      - workday_sites: ['UMGUS', 'UMGUK', 'External', ...]
+    """
+    name = company_cfg.get("name", "Unknown")
+    hosts = company_cfg.get("workday_hosts", []) or []
+    sites = company_cfg.get("workday_sites", []) or []
+    # Derive tenant (prefix of host, e.g., umusic.wd5.myworkdayjobs.com -> umusic)
+    # If tenant is explicitly provided, prefer that:
+    tenant = company_cfg.get("workday_tenant")
 
-def _extract_from_graphql_response(resp_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-    data = (resp_json or {}).get("data") or {}
-    jp = data.get("jobPostings") or {}
-    edges = jp.get("edges") or []
-    nodes = []
-    for e in edges:
-        if isinstance(e, dict) and isinstance(e.get("node"), dict):
-            nodes.append(e["node"])
-    return nodes
-
-def fetch(company: Dict[str, Any]) -> List[Dict[str, Any]]:
-    ats = (company.get("ats") or "").lower()
-    if ats not in ("workday_pw","workday-playwright","workday-pw"):
-        return []
-
-    tenant = (company.get("workday_tenant") or "").strip()
-    if not tenant:
-        print(f"WORKDAY_PW {company.get('name')}: missing workday_tenant")
-        return []
-
-    hosts = _hosts(company)
-    sites = _sites(company)
-
-    tried_logs: List[Dict[str, Any]] = []
-    all_items: List[Dict[str, Any]] = []
+    results = []
+    tried = []
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=PW_HEADLESS)
-        context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        context = browser.new_context()
         page = context.new_page()
 
-        def handle_response(resp):
-            try:
-                url = resp.url
-                if f"/wday/cxs/{tenant}/graphql" in url and resp.request.method == "POST" and resp.status == 200:
-                    ct = (resp.headers.get("content-type") or "").lower()
-                    if "json" in ct:
-                        data = resp.json()
-                        nodes = _extract_from_graphql_response(data)
-                        if nodes:
-                            tried_logs[-1]["items"] += len(nodes)
-                            all_items.extend([_map_node(tried_logs[-1]["host"], company, n) for n in nodes])
-            except Exception:
-                pass
-
-        page.on("response", handle_response)
-
-        try:
-            for host in hosts:
-                for site in sites:
-                    base = f"https://{host}/wday/cxs/{tenant}/{site}"
-                    record = {"host": host, "site": site, "url": base, "status": None, "items": 0}
-                    tried_logs.append(record)
-                    try:
-                        page.goto(base, timeout=TIMEOUT_MS, wait_until="domcontentloaded")
-                        record["status"] = "ok"
-                        # Let the app boot & fire GraphQL
-                        page.wait_for_load_state("networkidle", timeout=TIMEOUT_MS)
-                        page.wait_for_timeout(1500)
-                        # nudge
-                        try:
-                            page.keyboard.down("End"); page.wait_for_timeout(600); page.keyboard.up("End")
-                        except Exception:
-                            pass
-                    except Exception as e:
-                        record["status"] = f"error: {e}"
-                        continue
-
-                    if EARLY_BREAK and record["items"] > 0:
-                        break
-                if EARLY_BREAK and any(r["items"] > 0 for r in tried_logs):
+        for host in hosts:
+            # derive tenant if needed
+            tnt = tenant or (host.split(".", 1)[0] if "." in host else "")
+            for site in sites:
+                if len(results) >= WD_LIMIT:
                     break
-        finally:
-            try: context.close()
-            except Exception: pass
-            try: browser.close()
-            except Exception: pass
 
-    dbg = os.getenv("WORKDAY_GQL_DEBUG") or os.getenv("WORKDAY_PW_DEBUG")
-    if str(dbg).strip().lower() in ("1","true","yes","on"):
-        print(f"WORKDAY_PW_DEBUG {company.get('name')}: tried={tried_logs} got={len(all_items)}")
+                base = f"https://{host}/wday/cxs/{tnt}/{site}"
+                status = "ok"
+                items_before = len(results)
+                try:
+                    _open_listing(page, base)
 
-    return all_items
+                    # Page 1 + pagination
+                    pages_done = 0
+                    while pages_done < WD_MAX_PAGES and len(results) < WD_LIMIT:
+                        got = _scrape_listing_page(page, base, name, results)
+                        pages_done += 1
+                        # Early-break if nothing found (helps on bad site keys)
+                        if got == 0 and WD_EARLY_BREAK:
+                            break
+                        # Next page?
+                        next_btn = page.locator(SEL_NEXT_PAGE)
+                        if next_btn.count() and next_btn.first.is_enabled():
+                            try:
+                                next_btn.first.click(timeout=3000)
+                                # wait a hair for new tiles to render
+                                page.wait_for_timeout(800)
+                                page.wait_for_selector(SEL_JOB_TILE, timeout=6000)
+                            except Exception:
+                                break
+                        else:
+                            break
+                except Exception as e:
+                    status = f"error:{type(e).__name__}"
+
+                items_after = len(results)
+                got_items = items_after - items_before
+                tried.append({
+                    "host": host,
+                    "site": site,
+                    "url": base,
+                    "status": status,
+                    "items": got_items
+                })
+
+        context.close()
+        browser.close()
+
+    if WORKDAY_PW_DEBUG:
+        print(f"WORKDAY_PW_DEBUG {name}: tried={tried} got={len(results)}")
+
+    return results

@@ -40,16 +40,17 @@ jobs:
 
       - name: Run aggregator
         env:
-          SMTP_HOST:   ${{ secrets.SMTP_HOST }}
-          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
-          SMTP_USER:   ${{ secrets.SMTP_USER }}
-          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
-          EMAIL_TO:    ${{ secrets.EMAIL_TO }}
-          PW_HEADLESS: "1"
-          WD_EARLY_BREAK: "1"   # keep ON for first success; we'll turn off later
-          WD_MAX_SITES: "6"
-          WD_MAX_HOSTS: "3"
-          WD_LIMIT: "200"
+    SMTP_HOST:   ${{ secrets.SMTP_HOST }}
+    SMTP_PORT:   ${{ secrets.SMTP_PORT }}
+    SMTP_USER:   ${{ secrets.SMTP_USER }}
+    SMTP_PASS:   ${{ secrets.SMTP_PASS }}
+    EMAIL_TO:    ${{ secrets.EMAIL_TO }}
+    PW_HEADLESS: "1"
+    WD_EARLY_BREAK: "1"
+    WD_MAX_SITES: "6"
+    WD_MAX_HOSTS: "1"
+    WD_LIMIT: "200"
+    WORKDAY_PW_DEBUG: "1"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

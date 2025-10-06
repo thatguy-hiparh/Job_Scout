@@ -1,67 +1,34 @@
 targets:
-  # --- SmartRecruiters ---
   - name: Randstad
-    ats: smartrecruiters
-    smartrecruiters_slugs:
-      - randstad
-      - randstaditaly
-      - randstad-italia
-      - randstaditalia
-      - randstad-emea
-      - Randstad4
-    smartrecruiters_countries:
-      - Italy
+    ats: randstad_it
+    base_url: "https://www.randstad.it/offerte-lavoro"
+    query: ""
+    max_pages: 5
+    pause_s: 0.8
+    debug: false
 
   - name: Adecco
-    ats: smartrecruiters
-    smartrecruiters_slugs:
-      - adeccoitaly
-      - adecco-italy
-      - adeccoitalia
-      - adecco
-      - adeccogroup
-      - adeccoireland
-      - adecco-uk
-      - AdeccoStaffingUSA1
-    smartrecruiters_countries:
-      - Italy
-      - Ireland
-      - United Kingdom
-      - Germany
-      - Spain
-      - France
-      - Netherlands
-      - Portugal
-      - Switzerland
-      - Austria
-      - Belgium
-      - Luxembourg
-      - Poland
-      - Czechia
-      - Romania
+    ats: adecco_it
+    base_url: "https://www.adecco.it/offerte-lavoro"
+    query: ""
+    max_pages: 5
+    pause_s: 0.8
+    debug: false
 
-  # --- Workday (Playwright) ---
   - name: Universal Music Group
-    ats: workday_pw
+    ats: workday_pw_gql
     workday_pw_hosts:
       - umusic.wd5.myworkdayjobs.com
-      - umusic.wd1.myworkdayjobs.com
     workday_pw_sites:
       - UMGUS
       - UMGUK
       - External
-      - Global
-      - universal-music-group
-      - UNIVERSAL-MUSIC-GROUP
 
   - name: Warner Music Group
-    ats: workday_pw
+    ats: workday_pw_gql
     workday_pw_hosts:
       - wmg.wd1.myworkdayjobs.com
     workday_pw_sites:
       - WMGUS
       - WMGGLOBAL
       - External
-      - Global
-      - WMG
-      - Wmg

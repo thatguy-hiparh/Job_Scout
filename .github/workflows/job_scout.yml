@@ -3,19 +3,18 @@ name: job_scout_daily
 on:
   schedule:
     - cron: "0 7 * * *"   # 07:00 UTC ≈ 09:00 Europe/Rome
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     concurrency:
       group: job_scout_daily
-      cancel-in-progress: false
+      cancel-in-progress: true
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -35,8 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # NEW: download Playwright browser binaries for the runner
-      - name: Install Playwright browsers (Chromium)
+      - name: Install Playwright browsers (chromium only)
         run: |
           python -m playwright install --with-deps chromium
 
@@ -47,12 +45,16 @@ jobs:
           SMTP_USER:   ${{ secrets.SMTP_USER }}
           SMTP_PASS:   ${{ secrets.SMTP_PASS }}
           EMAIL_TO:    ${{ secrets.EMAIL_TO }}
+
+          # Playwright / Workday runtime guards
           PW_HEADLESS: "1"
-          WD_EARLY_BREAK: "1"
-          WD_MAX_SITES: "6"
-          WD_MAX_HOSTS: "1"
-          WD_LIMIT: "200"
           WORKDAY_PW_DEBUG: "1"
+          WD_LIMIT: "200"
+          WD_MAX_PAGES: "2"        # keep tight to avoid long crawls
+          WD_EARLY_BREAK: "1"
+          WD_MAX_HOSTS: "1"        # try only the first host per company
+          WD_MAX_SITES: "3"        # try only the first 3 site keys
+
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

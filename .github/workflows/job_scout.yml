@@ -35,6 +35,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # NEW: download Playwright browser binaries for the runner
+      - name: Install Playwright browsers (Chromium)
+        run: |
+          python -m playwright install --with-deps chromium
+
       - name: Run aggregator
         env:
           SMTP_HOST:   ${{ secrets.SMTP_HOST }}

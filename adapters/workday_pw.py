@@ -1,5 +1,5 @@
 # adapters/workday_pw.py
-import os, json, time
+import os, json
 from typing import List, Dict, Any, Optional
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout, APIResponse
 
@@ -18,39 +18,34 @@ def _norm(s: Optional[str]) -> str:
 
 def _extract_items(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Workday /wday/cxs/{tenant}/{site}/jobs returns JSON.
-    Common shapes:
-      { "jobSearch": { "items": [ {...}, ... ] } }
-      Or nested under "data" for some tenants.
-    Be permissive.
+    Workday /wday/cxs/{tenant}/{site}/jobs returns JSON in a few shapes.
+    Try common paths, then deep-walk as a fallback.
     """
     if not isinstance(payload, dict):
         return []
 
-    # direct common path
     js = payload.get("jobSearch")
     if isinstance(js, dict) and isinstance(js.get("items"), list):
         return js["items"]
 
-    # sometimes wrapped
     data = payload.get("data") or {}
     js = data.get("jobSearch")
     if isinstance(js, dict) and isinstance(js.get("items"), list):
         return js["items"]
 
-    # deep-walk fallback
     out: List[Dict[str, Any]] = []
     def walk(o):
         if isinstance(o, dict):
             if "jobSearch" in o and isinstance(o["jobSearch"], dict):
-                items = o["jobSearch"].get("items") or []
-                for it in items:
-                    if isinstance(it, dict):
-                        out.append(it)
+                it = o["jobSearch"].get("items") or []
+                for n in it:
+                    if isinstance(n, dict):
+                        out.append(n)
             for v in o.values():
                 walk(v)
         elif isinstance(o, list):
-            for v in o: walk(v)
+            for v in o:
+                walk(v)
     walk(payload)
     return out
 
@@ -76,9 +71,33 @@ def _build_job(company: str, host: str, tenant: str, site: str, node: Dict[str, 
         "meta": {"workday_site": site, "host": host},
     }
 
-def _try_fetch_jobs(ctx_request, url: str) -> List[Dict[str, Any]]:
+def _find_xsrf_token(cookies: List[Dict[str, Any]]) -> Optional[str]:
     """
-    Try several parameter variants commonly accepted by the endpoint.
+    Different tenants use different names; grab any cookie that looks like an XSRF token.
+    Common: 'XSRF-TOKEN', 'WD-XSRF-TOKEN', 'WDAY-XSRF-TOKEN'
+    """
+    for c in cookies:
+        name = (c.get("name") or "").lower()
+        if "xsrf" in name:
+            return c.get("value")
+    return None
+
+def _make_headers(origin: str, referer: str, xsrf: Optional[str]) -> Dict[str, str]:
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "X-Requested-With": "XMLHttpRequest",
+        "Workday-Client": "workday+cxs",
+        "Referer": referer,
+        "Origin": origin,
+    }
+    if xsrf:
+        # Header name varies slightly between tenants, this one is widely accepted:
+        headers["X-WD-XSRF-TOKEN"] = xsrf
+    return headers
+
+def _try_fetch_jobs(ctx_request, url_api: str, headers: Dict[str, str]) -> List[Dict[str, Any]]:
+    """
+    Hit the JSON endpoint with multiple param variants.
     Stop on first non-empty result.
     """
     variants = [
@@ -88,36 +107,34 @@ def _try_fetch_jobs(ctx_request, url: str) -> List[Dict[str, Any]]:
     ]
     for params in variants:
         try:
-            resp: APIResponse = ctx_request.get(url, params=params, timeout=30000)
+            resp: APIResponse = ctx_request.get(url_api, params=params, headers=headers, timeout=30000)
             if not resp.ok:
-                _dbg(f"WORKDAY_PW_DEBUG GET {url} {params} -> {resp.status}")
+                _dbg(f"WORKDAY_PW_DEBUG GET {url_api} {params} -> {resp.status}")
                 continue
-            ctype = resp.headers.get("content-type", "")
-            if "application/json" not in ctype and "json" not in ctype:
-                # Some tenants return text/html unless XHR-like — but Playwright request is XHR enough.
-                # Still, guard it.
+
+            ctype = (resp.headers.get("content-type") or "").lower()
+            if "json" in ctype:
+                payload = resp.json()
+            else:
+                # Occasionally servers return text/html but the body is JSON
                 txt = resp.text()
-                # Sometimes the JSON is embedded as plain text; try to parse.
                 try:
                     payload = json.loads(txt)
                 except Exception:
-                    _dbg(f"WORKDAY_PW_DEBUG non-JSON content for {url} {params}, len={len(txt)}")
+                    _dbg(f"WORKDAY_PW_DEBUG non-JSON content for {url_api} {params}, len={len(txt)}")
                     continue
-            else:
-                payload = resp.json()
 
             items = _extract_items(payload)
-            _dbg(f"WORKDAY_PW_DEBUG {url} {params} -> items={len(items)}")
+            _dbg(f"WORKDAY_PW_DEBUG GET {url_api} {params} -> items={len(items)}")
             if items:
                 return items
         except Exception as e:
-            _dbg(f"WORKDAY_PW_DEBUG error GET {url} {params}: {e}")
-            continue
+            _dbg(f"WORKDAY_PW_DEBUG error GET {url_api} {params}: {e}")
     return []
 
 def fetch(company_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    company_cfg requirements:
+    company_cfg requires:
       - name
       - ats: workday_pw
       - workday_pw_hosts: [ 'umusic.wd5.myworkdayjobs.com', ... ]
@@ -136,23 +153,30 @@ def fetch(company_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
         page = ctx.new_page()
 
         for host in hosts:
-            tenant = host.split(".")[0]  # e.g. umusic, wmg
+            tenant = host.split(".")[0]
+            origin = f"https://{host}"
             for site in sites:
-                # 1) Warm the context (cookies/CDP) by visiting the page quickly.
-                url_page = f"https://{host}/wday/cxs/{tenant}/{site}"
+                url_page = f"{origin}/wday/cxs/{tenant}/{site}"
+                url_api  = f"{url_page}/jobs"
+
+                # 1) Warm page (sets cookies & any session headers)
                 try:
                     page.goto(url_page, wait_until="domcontentloaded", timeout=20000)
                 except Exception as e:
                     _dbg(f"WORKDAY_PW_DEBUG warm {url_page}: {e}")
 
-                # 2) Hit the JSON endpoint directly via context.request
-                url_api = f"https://{host}/wday/cxs/{tenant}/{site}/jobs"
-                items = _try_fetch_jobs(ctx.request, url_api)
+                # 2) Build headers using cookies (XSRF if present)
+                cookies = ctx.cookies(url_page)
+                xsrf = _find_xsrf_token(cookies)
+                headers = _make_headers(origin, url_page, xsrf)
 
+                # 3) Try to pull jobs JSON directly
+                items = _try_fetch_jobs(ctx.request, url_api, headers)
                 jobs = [_build_job(name, host, tenant, site, n) for n in items]
                 tried_meta.append({"host": host, "site": site, "url": url_api, "status": "ok", "items": len(jobs)})
                 gathered.extend(jobs)
 
+                # Respect overall cap
                 if WD_LIMIT and len(gathered) >= WD_LIMIT:
                     gathered = gathered[:WD_LIMIT]
                     break

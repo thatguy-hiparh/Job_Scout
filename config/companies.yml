@@ -33,21 +33,24 @@ targets:
   # ---------- UMG ----------
   # Try both wd5 and wd1; many tenants move between clusters.
   - name: Universal Music Group
-    ats: workday_pw_gql
-    workday_pw_hosts:
-      - umusic.wd5.myworkdayjobs.com
-      - umusic.wd1.myworkdayjobs.com
-    workday_pw_sites:
-      - UMGUS
-      - UMGUK
-      - External
+  ats: workday_pw
+  workday_hosts:
+    - "umusic.wd5.myworkdayjobs.com"
+    - "umusic.wd1.myworkdayjobs.com"   # fallback host
+  workday_sites:
+    - "UMGUS"
+    - "UMGUK"
+    - "External"
+  # optional label to display next to results
+  label: "UMG"
 
-  # ---------- WMG ----------
-  - name: Warner Music Group
-    ats: workday_pw_gql
-    workday_pw_hosts:
-      - wmg.wd1.myworkdayjobs.com
-    workday_pw_sites:
-      - WMGUS
-      - WMGGLOBAL
-      - External
+# --- Warner Music Group (Workday via Playwright) ---
+- name: Warner Music Group
+  ats: workday_pw
+  workday_hosts:
+    - "wmg.wd1.myworkdayjobs.com"
+  workday_sites:
+    - "WMGUS"
+    - "WMGGLOBAL"
+    - "External"
+  label: "WMG"

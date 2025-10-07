@@ -55,7 +55,7 @@ jobs:
           WD_MAX_PAGES: "2"
           WD_EARLY_BREAK: "1"
           WD_MAX_HOSTS: "2"
-          WD_MAX_SITES: "6"
+          WD_MAX_SITES: "3"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

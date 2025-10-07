@@ -17,34 +17,27 @@ from adapters import (
     workday,
     workday_gql,
     workday_pw,
-    workday_pw_gql,      # NEW
     smartrecruiters,
     randstad_it,
     adecco_it,
 )
 
-# ---------------------------------------------------------------------
-# Map ATS identifier -> adapter module
-# ---------------------------------------------------------------------
+# Map ATS string -> adapter module
 ADAPTERS = {
     "lever":             lever,
     "greenhouse":        greenhouse,
     "workable":          workable,
     "ashby":             ashby,
-    "workday":           workday,          # legacy REST probe
-    "workday_gql":       workday_gql,      # JSON API when accessible
-    "workday_pw":        workday_pw,       # Playwright headless fallback
-    "workday_pw_gql":    workday_pw_gql,   # NEW GraphQL POST mode
-    "workday-pw":        workday_pw,       # alias
+    "workday":           workday,         # legacy REST probe
+    "workday_gql":       workday_gql,     # JSON API when accessible
+    "workday_pw":        workday_pw,      # Playwright-based fallback
+    "workday-pw":        workday_pw,      # alias
     "smartrecruiters":   smartrecruiters,
     "rss":               rss,
     "randstad_it":       randstad_it,
     "adecco_it":         adecco_it,
 }
 
-# ---------------------------------------------------------------------
-# Email delivery
-# ---------------------------------------------------------------------
 def send_email(html):
     host=os.getenv("SMTP_HOST"); port=int(os.getenv("SMTP_PORT","587"))
     user=os.getenv("SMTP_USER"); pwd=os.getenv("SMTP_PASS"); to=os.getenv("EMAIL_TO")
@@ -58,40 +51,37 @@ def send_email(html):
         s.starttls(); s.login(user, pwd); s.sendmail(user, [to], msg.as_string())
     print("EMAIL: sent")
 
-# ---------------------------------------------------------------------
-# HTML rendering
-# ---------------------------------------------------------------------
 def render_html(jobs, outpath):
     env = Environment(loader=FileSystemLoader("outputs/templates"))
     tpl = env.get_template("daily_report.html.j2")
     ts = dt.datetime.now().isoformat(timespec="seconds")
     html = tpl.render(generated_at=ts, total=len(jobs), jobs=jobs)
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    with open(outpath, "w", encoding="utf-8") as f:
-        f.write(html)
+    with open(outpath, "w", encoding="utf-8") as f: f.write(html)
     print(f"WROTE: {outpath}")
     return html
 
-# ---------------------------------------------------------------------
-# Pipeline runner
-# ---------------------------------------------------------------------
 def run(companies_file, keywords_file, outpath):
     companies = yaml.safe_load(open(companies_file, encoding="utf-8"))
     kw = yaml.safe_load(open(keywords_file, encoding="utf-8"))
 
     all_jobs=[]
+    counts={}
     for c in companies["targets"]:
+        name = c.get("name")
         ats = c.get("ats")
         adapter = ADAPTERS.get(ats)
         if not adapter:
-            print("SKIP", c.get("name"), "unsupported ats:", ats)
+            print("SKIP", name, "unsupported ats:", ats)
             continue
         try:
             jobs = adapter.fetch(c)
             all_jobs.extend(jobs)
-            print(f"{c['name']}: {len(jobs)}")
+            counts[name] = len(jobs)
+            print(f"{name}: {len(jobs)}")
         except Exception as e:
-            print("ERROR", c.get("name"), e)
+            counts[name] = f"ERR:{e}"
+            print("ERROR", name, e)
 
     all_jobs = normalize(all_jobs)
     all_jobs = filter_jobs(all_jobs, kw)
@@ -100,9 +90,14 @@ def run(companies_file, keywords_file, outpath):
     html = render_html(all_jobs, outpath)
     send_email(html)
 
-# ---------------------------------------------------------------------
-# CLI entry
-# ---------------------------------------------------------------------
+    # ----------- SUMMARY LINE -----------
+    parts = []
+    total = 0
+    for k, v in counts.items():
+        parts.append(f"{k}={v}")
+        if isinstance(v, int): total += v
+    print("SUMMARY:", " | ".join(parts), "| Total=", total)
+
 if __name__ == "__main__":
     import argparse
     ap=argparse.ArgumentParser()

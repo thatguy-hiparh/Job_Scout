@@ -1,7 +1,10 @@
+# config/companies.yml
+# Master list of sources the aggregator will query.
+# Every entry under `targets:` is one source with an `ats` adapter.
+
 targets:
-  # ---------- Randstad ----------
-  # Keep the reliable SmartRecruiters feed (this is where the ~257 came from)
-  - name: Randstad (SmartRecruiters)
+  # --- Randstad via SmartRecruiters (global feed, then we filter by country) ---
+  - name: "Randstad (SmartRecruiters)"
     ats: smartrecruiters
     smartrecruiters_slugs:
       - "randstad"
@@ -9,48 +12,38 @@ targets:
       - "randstad-italia"
       - "randstaditalia"
       - "randstad-emea"
-      - "Randstad4"      # this one produced the 257
+      - "Randstad4"
     smartrecruiters_countries: ["Italy"]
 
-  # Optional: the Italy site scraper (often 0, but we keep it for coverage)
-  - name: Randstad (Italy)
+  # --- Randstad Italy site scraper (backup to SR feed) ---
+  - name: "Randstad (Italy)"
     ats: randstad_it
-    base_url: "https://www.randstad.it/offerte-lavoro"
-    query: ""
-    max_pages: 5
-    pause_s: 0.8
-    debug: false
+    country: "IT"
 
-  # ---------- Adecco ----------
-  - name: Adecco (Italy)
+  # --- Adecco Italy site scraper (backup to SR) ---
+  - name: "Adecco (Italy)"
     ats: adecco_it
-    base_url: "https://www.adecco.it/offerte-lavoro"
-    query: ""
-    max_pages: 10      # was 5; earlier you saw 8 pages
-    pause_s: 0.8
-    debug: false
+    country: "IT"
 
-  # ---------- UMG ----------
-  # Try both wd5 and wd1; many tenants move between clusters.
-  - name: Universal Music Group
-  ats: workday_pw
-  workday_hosts:
-    - "umusic.wd5.myworkdayjobs.com"
-    - "umusic.wd1.myworkdayjobs.com"   # fallback host
-  workday_sites:
-    - "UMGUS"
-    - "UMGUK"
-    - "External"
-  # optional label to display next to results
-  label: "UMG"
+  # --- Universal Music Group (Workday via Playwright) ---
+  - name: "Universal Music Group"
+    ats: workday_pw
+    workday_hosts:
+      - "umusic.wd5.myworkdayjobs.com"
+      - "umusic.wd1.myworkdayjobs.com"   # fallback
+    workday_sites:
+      - "UMGUS"
+      - "UMGUK"
+      - "External"
+    label: "UMG"
 
-# --- Warner Music Group (Workday via Playwright) ---
-- name: Warner Music Group
-  ats: workday_pw
-  workday_hosts:
-    - "wmg.wd1.myworkdayjobs.com"
-  workday_sites:
-    - "WMGUS"
-    - "WMGGLOBAL"
-    - "External"
-  label: "WMG"
+  # --- Warner Music Group (Workday via Playwright) ---
+  - name: "Warner Music Group"
+    ats: workday_pw
+    workday_hosts:
+      - "wmg.wd1.myworkdayjobs.com"
+    workday_sites:
+      - "WMGUS"
+      - "WMGGLOBAL"
+      - "External"
+    label: "WMG"

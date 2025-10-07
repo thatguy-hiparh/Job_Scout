@@ -40,20 +40,20 @@ jobs:
 
       - name: Run aggregator
         env:
-          SMTP_HOST:   ${{ secrets.SMTP_HOST }}
-          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
-          SMTP_USER:   ${{ secrets.SMTP_USER }}
-          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
-          EMAIL_TO:    ${{ secrets.EMAIL_TO }}
+  SMTP_HOST: ${{ secrets.SMTP_HOST }}
+  SMTP_PORT: ${{ secrets.SMTP_PORT }}
+  SMTP_USER: ${{ secrets.SMTP_USER }}
+  SMTP_PASS: ${{ secrets.SMTP_PASS }}
+  EMAIL_TO:  ${{ secrets.EMAIL_TO }}
 
-          # Playwright / Workday runtime guards
-          PW_HEADLESS: "1"
-          WORKDAY_PW_DEBUG: "1"
-          WD_LIMIT: "200"
-          WD_MAX_PAGES: "2"        # keep tight to avoid long crawls
-          WD_EARLY_BREAK: "1"
-          WD_MAX_HOSTS: "1"        # try only the first host per company
-          WD_MAX_SITES: "3"        # try only the first 3 site keys
+  # Playwright + Workday debug knobs
+  PW_HEADLESS: "1"
+  WORKDAY_PW_DEBUG: "1"
+  WD_LIMIT: "200"
+  WD_MAX_PAGES: "2"
+  WD_EARLY_BREAK: "1"
+  WD_MAX_HOSTS: "2"   # bump to try wd5+wd1 for UMG
+  WD_MAX_SITES: "6"
 
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html

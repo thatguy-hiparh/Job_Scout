@@ -1,5 +1,19 @@
 targets:
-  - name: Randstad
+  # ---------- Randstad ----------
+  # Keep the reliable SmartRecruiters feed (this is where the ~257 came from)
+  - name: Randstad (SmartRecruiters)
+    ats: smartrecruiters
+    smartrecruiters_slugs:
+      - "randstad"
+      - "randstaditaly"
+      - "randstad-italia"
+      - "randstaditalia"
+      - "randstad-emea"
+      - "Randstad4"      # this one produced the 257
+    smartrecruiters_countries: ["Italy"]
+
+  # Optional: the Italy site scraper (often 0, but we keep it for coverage)
+  - name: Randstad (Italy)
     ats: randstad_it
     base_url: "https://www.randstad.it/offerte-lavoro"
     query: ""
@@ -7,23 +21,28 @@ targets:
     pause_s: 0.8
     debug: false
 
-  - name: Adecco
+  # ---------- Adecco ----------
+  - name: Adecco (Italy)
     ats: adecco_it
     base_url: "https://www.adecco.it/offerte-lavoro"
     query: ""
-    max_pages: 5
+    max_pages: 10      # was 5; earlier you saw 8 pages
     pause_s: 0.8
     debug: false
 
+  # ---------- UMG ----------
+  # Try both wd5 and wd1; many tenants move between clusters.
   - name: Universal Music Group
     ats: workday_pw_gql
     workday_pw_hosts:
       - umusic.wd5.myworkdayjobs.com
+      - umusic.wd1.myworkdayjobs.com
     workday_pw_sites:
       - UMGUS
       - UMGUK
       - External
 
+  # ---------- WMG ----------
   - name: Warner Music Group
     ats: workday_pw_gql
     workday_pw_hosts:

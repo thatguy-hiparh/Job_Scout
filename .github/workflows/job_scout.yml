@@ -8,13 +8,14 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     concurrency:
       group: job_scout_daily
-      cancel-in-progress: true
+      cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -34,27 +35,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright browsers (chromium only)
+      # Playwright needs the browser binaries installed on the runner
+      - name: Install Playwright browsers
         run: |
-          python -m playwright install --with-deps chromium
+          python -m playwright install --with-deps
 
       - name: Run aggregator
         env:
-  SMTP_HOST: ${{ secrets.SMTP_HOST }}
-  SMTP_PORT: ${{ secrets.SMTP_PORT }}
-  SMTP_USER: ${{ secrets.SMTP_USER }}
-  SMTP_PASS: ${{ secrets.SMTP_PASS }}
-  EMAIL_TO:  ${{ secrets.EMAIL_TO }}
+          SMTP_HOST:   ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
+          SMTP_USER:   ${{ secrets.SMTP_USER }}
+          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
+          EMAIL_TO:    ${{ secrets.EMAIL_TO }}
 
-  # Playwright + Workday debug knobs
-  PW_HEADLESS: "1"
-  WORKDAY_PW_DEBUG: "1"
-  WD_LIMIT: "200"
-  WD_MAX_PAGES: "2"
-  WD_EARLY_BREAK: "1"
-  WD_MAX_HOSTS: "2"   # bump to try wd5+wd1 for UMG
-  WD_MAX_SITES: "6"
-
+          # Playwright + Workday debug knobs
+          PW_HEADLESS: "1"
+          WORKDAY_PW_DEBUG: "1"
+          WD_LIMIT: "200"
+          WD_MAX_PAGES: "2"
+          WD_EARLY_BREAK: "1"
+          WD_MAX_HOSTS: "2"
+          WD_MAX_SITES: "6"
         run: |
           python main.py --config config/companies.yml --keywords config/keywords.yml --out docs/daily_report.html
 

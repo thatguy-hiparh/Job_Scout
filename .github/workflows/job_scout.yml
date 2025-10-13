@@ -50,7 +50,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO:  ${{ secrets.EMAIL_TO }}
           PW_HEADLESS: "1"
-          SKIP_FILTERS: "1"
+          SKIP_FILTERS: "0"
           # --- Optional debug flags (uncomment only when needed) ---
           # WORKDAY_PW_DEBUG: "1"
           # WD_LIMIT: "200"

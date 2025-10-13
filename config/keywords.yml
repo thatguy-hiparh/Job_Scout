@@ -1,106 +1,79 @@
 # config/keywords.yml
-# Keep roles that match these words in title or description
-include_keywords:
-  - engineer
-  - developer
-  - data
-  - machine learning
-  - ai
-  - product
-  - manager
-  - program
-  - project
-  - analyst
-  - designer
-  - audio
-  - music
-  - dsp
-  - backend
-  - frontend
-  - full stack
-  - platform
-  - infrastructure
-  - reliability
-  - devops
-  - security
-  - research
-  - scientist
-  - producer
-  - content ops
-  - a&r
+
+title_any:
+  - (engineer|developer|data|ml|ai|software|backend|frontend|full[- ]stack)
+  - (product|program|project) manager
+  - (research|scientist|analyst)
+  - (solutions|sales) engineer
+  - (platform|infrastructure|devops|sre)
+  - (content|music|audio) (operations|strategy|partnerships)
+  - (creator|artist) (tools|platform|relations)
+
+title_block:
   - intern
   - internship
+  - contractor
+  - volunteer
 
-# Drop obvious non-job content
-exclude_keywords:
-  - newsroom
-  - press
-  - blog
-  - podcast
-  - story
-  - stories
-  - feature
-  - product update
-  - announcement
-  - event recap
-  - partnership
-  - award
-  - behind the scenes
+location_any:   # EMEA countries + Remote Europe hints
+  - Italy
+  - Roma|Rome|Milano|Milan|Torino|Turin|Napoli|Naples|Bologna|Firenze|Florence
+  - United Kingdom|UK|England|London|Manchester
+  - Ireland|Dublin|Cork
+  - Germany|Deutschland|Berlin|Munich|München|Hamburg|Frankfurt
+  - France|Paris|Lyon
+  - Spain|España|Madrid|Barcelona
+  - Netherlands|Amsterdam|Rotterdam
+  - Belgium|Brussels|Antwerp
+  - Switzerland|Zürich|Geneva|Basel
+  - Austria|Vienna|Wien
+  - Portugal|Lisbon|Porto
+  - Sweden|Stockholm|Gothenburg
+  - Denmark|Copenhagen
+  - Norway|Oslo
+  - Finland|Helsinki
+  - Poland|Warsaw|Kraków
+  - Czechia|Czech Republic|Prague
+  - Romania|Bucharest
+  - Hungary|Budapest
+  - Greece|Athens
+  - Remote EU|Remote EMEA|Remote Europe
 
-# EMEA focus — keep if location mentions one of these
-location_allowlist:
-  - remote - emea
-  - emea
-  - europe
-  - european union
-  - uk
-  - united kingdom
-  - ireland
-  - italy
-  - france
-  - germany
-  - spain
-  - portugal
-  - netherlands
-  - belgium
-  - luxembourg
-  - switzerland
-  - austria
-  - sweden
-  - norway
-  - denmark
-  - finland
-  - iceland
-  - estonia
-  - latvia
-  - lithuania
-  - poland
-  - czech
-  - slovakia
-  - hungary
-  - romania
-  - bulgaria
-  - greece
-  - slovenia
-  - croatia
-  - serbia
-  - bosnia
-  - montenegro
-  - north macedonia
-  - albania
-  - turkey
-  - cyprus
-  - malta
+location_block:
+  - United States|USA|US
+  - Canada
+  - Australia
+  - India
+  - Singapore
+  - China
+  - Japan
+  - Korea
 
-# Optional: if a company has no location text, still allow — set false to be strict
-allow_unlocated: false
+company_block: []   # add if some companies should be excluded
 
-# RSS-specific extra drops (adapter already filters, this is belt & suspenders)
-rss_exclude_words:
-  - newsroom
-  - press
-  - blog
-  - podcast
-  - stories
-  - insights
-  - updates
+# URL patterns – allow ATS/careers; block newsroom/press/blog/product pages
+url_allow:
+  - workdayjobs\.com
+  - greenhouse\.io
+  - lever\.co
+  - workable\.com
+  - ashbyhq\.com
+  - smartrecruiters\.com
+  - (-|/)careers?(/|$)
+  - /jobs?(/|$)
+
+url_block:
+  - /newsroom/
+  - /press/
+  - /blog/
+  - /stories/
+  - /insights/
+  - /announcement
+  - /product/
+  - /features?/
+  - /events?/
+  - /media/
+
+# Optional: if your filter supports minimum word hits (keep permissive for now)
+min_title_hits: 1
+min_location_hits: 1

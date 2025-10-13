@@ -1,10 +1,4 @@
-config/keywords.yml — full replacement (EMEA/Remote aware)
-keywords_yml = r'''# config/keywords.yml — full replacement
-# Core include/exclude terms + EMEA/Remote location strategy.
-# Notes:
-# - 'location.include' does NOT have to be exhaustive; it's a soft allow-list.
-# - 'allow_unlocated' = true keeps postings with blank locations (useful for 'Remote' roles that omit location fields).
-
+# config/keywords.yml — full replacement
 include:
   - music
   - metadata
@@ -30,7 +24,6 @@ exclude:
   - "principal engineer"
   - unpaid
 
-# Location policy
 allow_unlocated: true
 
 location:
@@ -68,7 +61,6 @@ location:
     - Texas
     - Washington
 
-# Optional overrides (filters.py has defaults; customize here if needed)
 remote_terms:
   - remote
   - hybrid
@@ -125,10 +117,3 @@ emea_terms:
   - ukraine
   - georgia
   - armenia
-'''
-
-print("===== vendors/filters.py (FULL FILE) =====\n")
-print(filters_py)
-
-print("\n\n===== config/keywords.yml (FULL FILE) =====\n")
-print(keywords_yml)

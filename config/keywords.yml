@@ -1,79 +1,134 @@
-# config/keywords.yml
+config/keywords.yml — full replacement (EMEA/Remote aware)
+keywords_yml = r'''# config/keywords.yml — full replacement
+# Core include/exclude terms + EMEA/Remote location strategy.
+# Notes:
+# - 'location.include' does NOT have to be exhaustive; it's a soft allow-list.
+# - 'allow_unlocated' = true keeps postings with blank locations (useful for 'Remote' roles that omit location fields).
 
-title_any:
-  - (engineer|developer|data|ml|ai|software|backend|frontend|full[- ]stack)
-  - (product|program|project) manager
-  - (research|scientist|analyst)
-  - (solutions|sales) engineer
-  - (platform|infrastructure|devops|sre)
-  - (content|music|audio) (operations|strategy|partnerships)
-  - (creator|artist) (tools|platform|relations)
+include:
+  - music
+  - metadata
+  - catalogue
+  - catalog
+  - royalties
+  - licensing
+  - rights
+  - content
+  - moderation
+  - "trust & safety"
+  - "trust and safety"
+  - data
+  - analyst
+  - operations
+  - qa
+  - quality
 
-title_block:
-  - intern
+exclude:
   - internship
-  - contractor
-  - volunteer
+  - intern
+  - "senior director"
+  - "principal engineer"
+  - unpaid
 
-location_any:   # EMEA countries + Remote Europe hints
-  - Italy
-  - Roma|Rome|Milano|Milan|Torino|Turin|Napoli|Naples|Bologna|Firenze|Florence
-  - United Kingdom|UK|England|London|Manchester
-  - Ireland|Dublin|Cork
-  - Germany|Deutschland|Berlin|Munich|München|Hamburg|Frankfurt
-  - France|Paris|Lyon
-  - Spain|España|Madrid|Barcelona
-  - Netherlands|Amsterdam|Rotterdam
-  - Belgium|Brussels|Antwerp
-  - Switzerland|Zürich|Geneva|Basel
-  - Austria|Vienna|Wien
-  - Portugal|Lisbon|Porto
-  - Sweden|Stockholm|Gothenburg
-  - Denmark|Copenhagen
-  - Norway|Oslo
-  - Finland|Helsinki
-  - Poland|Warsaw|Kraków
-  - Czechia|Czech Republic|Prague
-  - Romania|Bucharest
-  - Hungary|Budapest
-  - Greece|Athens
-  - Remote EU|Remote EMEA|Remote Europe
+# Location policy
+allow_unlocated: true
 
-location_block:
-  - United States|USA|US
-  - Canada
-  - Australia
-  - India
-  - Singapore
-  - China
-  - Japan
-  - Korea
+location:
+  include:
+    - EMEA
+    - Europe
+    - Remote
+    - Hybrid
+    - UK
+    - United Kingdom
+    - Ireland
+    - Italy
+    - Germany
+    - France
+    - Spain
+    - Portugal
+    - Netherlands
+    - Belgium
+    - Sweden
+    - Norway
+    - Denmark
+    - Finland
+    - Switzerland
+    - Austria
+    - Poland
+    - Czech
+    - Slovakia
+    - Romania
+  exclude:
+    - United States
+    - USA
+    - US
+    - California
+    - New York
+    - Texas
+    - Washington
 
-company_block: []   # add if some companies should be excluded
+# Optional overrides (filters.py has defaults; customize here if needed)
+remote_terms:
+  - remote
+  - hybrid
+  - work from anywhere
+  - distributed
+  - da remoto
+  - remoto
+  - telelavoro
+  - home office
+  - wfh
+  - work-from-home
 
-# URL patterns – allow ATS/careers; block newsroom/press/blog/product pages
-url_allow:
-  - workdayjobs\.com
-  - greenhouse\.io
-  - lever\.co
-  - workable\.com
-  - ashbyhq\.com
-  - smartrecruiters\.com
-  - (-|/)careers?(/|$)
-  - /jobs?(/|$)
+emea_terms:
+  - europe
+  - emea
+  - uk
+  - united kingdom
+  - ireland
+  - italy
+  - italia
+  - germany
+  - deutschland
+  - france
+  - spain
+  - portugal
+  - netherlands
+  - belgium
+  - austria
+  - sweden
+  - norway
+  - denmark
+  - finland
+  - switzerland
+  - poland
+  - czech
+  - slovakia
+  - romania
+  - bulgaria
+  - greece
+  - cyprus
+  - malta
+  - estonia
+  - latvia
+  - lithuania
+  - hungary
+  - slovenia
+  - croatia
+  - serbia
+  - bosnia
+  - montenegro
+  - albania
+  - macedonia
+  - moldova
+  - ukraine
+  - georgia
+  - armenia
+'''
 
-url_block:
-  - /newsroom/
-  - /press/
-  - /blog/
-  - /stories/
-  - /insights/
-  - /announcement
-  - /product/
-  - /features?/
-  - /events?/
-  - /media/
+print("===== vendors/filters.py (FULL FILE) =====\n")
+print(filters_py)
 
-# Optional: if your filter supports minimum word hits (keep permissive for now)
-min_title_hits: 1
-min_location_hits: 1
+print("\n\n===== config/keywords.yml (FULL FILE) =====\n")
+print(keywords_yml)

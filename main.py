@@ -17,12 +17,12 @@ from adapters import (
     rss,
     workable,
     ashby,
-    workday,        # legacy REST probe (kept for any tenants that still work)
-    workday_gql,    # JSON API when accessible
+    workday,
+    workday_gql,
     smartrecruiters,
     randstad_it,
     adecco_it,
-    workday_pw,     # Playwright headless browser for strict tenants
+    workday_pw,
 )
 
 # Map ATS string -> adapter module (module must expose .fetch(company) -> list[dict])
@@ -75,14 +75,54 @@ def render_html(jobs, outpath: str) -> str:
     print(f"WROTE: {outpath}")
     return html
 
+def _split_env_list(name: str):
+    raw = os.getenv(name, "")
+    return [t.strip() for t in raw.split(",") if t.strip()]
+
+def _text_from_job(job: dict) -> str:
+    parts = [
+        job.get("location", ""),
+        job.get("country", ""),
+        job.get("title", ""),
+        job.get("department", ""),
+        job.get("company", ""),
+    ]
+    return " | ".join([p for p in parts if p]).lower()
+
+def _passes_location(job: dict, allow_terms, deny_terms) -> bool:
+    if not allow_terms and not deny_terms:
+        return True  # nothing to enforce
+
+    blob = _text_from_job(job)
+
+    # deny has priority – if a deny term is present, reject
+    for d in deny_terms:
+        if d.lower() in blob:
+            return False
+
+    # if allow list is provided, require at least one match
+    if allow_terms:
+        for a in allow_terms:
+            if a.lower() in blob:
+                return True
+        return False
+
+    return True
+
 def run(companies_file: str, keywords_file: str, outpath: str) -> None:
     companies = yaml.safe_load(open(companies_file, encoding="utf-8"))
     kw = yaml.safe_load(open(keywords_file, encoding="utf-8"))
 
-    # Allow bypassing the keyword filter to see *all* scraped jobs for debugging
+    # Toggle: bypass keyword filter to see *all* scraped jobs
     skip_filter = os.getenv("SKIP_FILTER") == "1"
     if skip_filter:
         print("DEBUG: SKIP_FILTER=1 — report will include ALL scraped jobs (no keyword filtering)")
+
+    # NEW: simple location allow/deny via env
+    allow_locations = _split_env_list("ALLOW_LOCATIONS")
+    deny_locations  = _split_env_list("DENY_LOCATIONS")
+    if allow_locations or deny_locations:
+        print(f"INFO: Location filter active. ALLOW={allow_locations}  DENY={deny_locations}")
 
     all_jobs = []
     per_company_counts = []
@@ -99,6 +139,14 @@ def run(companies_file: str, keywords_file: str, outpath: str) -> None:
 
         try:
             jobs = adapter.fetch(c) or []
+            # apply location filter immediately to reduce downstream load
+            if allow_locations or deny_locations:
+                before = len(jobs)
+                jobs = [j for j in jobs if _passes_location(j, allow_locations, deny_locations)]
+                after = len(jobs)
+                if before != after:
+                    print(f"INFO: {name}: location filter kept {after}/{before}")
+
             all_jobs.extend(jobs)
             print(f"{name}: {len(jobs)}")
             per_company_counts.append(f"{name}={len(jobs)}")
@@ -107,13 +155,13 @@ def run(companies_file: str, keywords_file: str, outpath: str) -> None:
             traceback.print_exc(limit=1)
             per_company_counts.append(f"{name}=ERR")
 
-    # Normalize and (optionally) filter/dedupe
+    # Normalize and (optionally) keyword-filter/dedupe
     all_jobs = normalize(all_jobs)
 
     if not skip_filter:
         all_jobs = filter_jobs(all_jobs, kw)
     else:
-        print(f"DEBUG: filter skipped — {len(all_jobs)} jobs before dedupe")
+        print(f"DEBUG: keyword filter skipped — {len(all_jobs)} jobs before dedupe")
 
     before_dedupe = len(all_jobs)
     all_jobs = dedupe(all_jobs)
@@ -121,11 +169,9 @@ def run(companies_file: str, keywords_file: str, outpath: str) -> None:
     if after_dedupe != before_dedupe:
         print(f"INFO: Dedupe removed {before_dedupe - after_dedupe} duplicates")
 
-    # Render and send
     html = render_html(all_jobs, outpath)
     send_email(html)
 
-    # Final concise summary in logs
     print("SUMMARY:", " | ".join(per_company_counts), "| Total=", after_dedupe)
 
 if __name__ == "__main__":

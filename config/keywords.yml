@@ -1,49 +1,106 @@
+# config/keywords.yml
+# Keep roles that match these words in title or description
 include_keywords:
-  - music
+  - engineer
+  - developer
+  - data
+  - machine learning
+  - ai
+  - product
+  - manager
+  - program
+  - project
+  - analyst
+  - designer
   - audio
-  - metadata
-  - publishing
-  - royalties
-  - rights
-  - content id
-  - catalog
-  - isrc
-  - iswc
-  - licensing
-  - moderation
-  - trust & safety
-  - quality assurance
-  - qa
-  - data analyst
-  - operations
+  - music
+  - dsp
+  - backend
+  - frontend
+  - full stack
+  - platform
+  - infrastructure
+  - reliability
+  - devops
+  - security
+  - research
+  - scientist
+  - producer
+  - content ops
+  - a&r
+  - intern
+  - internship
 
+# Drop obvious non-job content
 exclude_keywords:
-  - delivery driver
-  - warehouse operative
-  - bartender
-  - chef
-  - teacher (primary)
-  - caregiver
-  - construction
+  - newsroom
+  - press
+  - blog
+  - podcast
+  - story
+  - stories
+  - feature
+  - product update
+  - announcement
+  - event recap
+  - partnership
+  - award
+  - behind the scenes
 
-# Companies that bypass keyword filtering (we trust their domain relevance)
-company_whitelist:
-  - Sony Music
-  - Universal Music Group
-  - Warner Music Group
-  - The Orchard (Sony)
-  - AWAL (Sony)
-  - SoundCloud
-  - Spotify
-  - Musixmatch
-  - Dolby
-  - Audible (Amazon)
-  - TIDAL (Block)
-  - Merlin Network
-  - Believe
-  - MuseScore
+# EMEA focus — keep if location mentions one of these
+location_allowlist:
+  - remote - emea
+  - emea
+  - europe
+  - european union
+  - uk
+  - united kingdom
+  - ireland
+  - italy
+  - france
+  - germany
+  - spain
+  - portugal
+  - netherlands
+  - belgium
+  - luxembourg
+  - switzerland
+  - austria
+  - sweden
+  - norway
+  - denmark
+  - finland
+  - iceland
+  - estonia
+  - latvia
+  - lithuania
+  - poland
+  - czech
+  - slovakia
+  - hungary
+  - romania
+  - bulgaria
+  - greece
+  - slovenia
+  - croatia
+  - serbia
+  - bosnia
+  - montenegro
+  - north macedonia
+  - albania
+  - turkey
+  - cyprus
+  - malta
 
-geo:
-  allow_remote: true
-  countries: ["Italy","Ireland","Germany","Netherlands","Spain","France","United Kingdom","Sweden","Denmark","Norway","Finland","Portugal","Switzerland","Austria","Belgium","Luxembourg","Czech","Poland","Romania"]
-  cities: ["Milan","Trento","Turin","Bologna","Rome","Florence","Dublin","Berlin","Amsterdam","Barcelona","Paris","London","Stockholm"]
+# Optional: if a company has no location text, still allow — set false to be strict
+allow_unlocated: false
+
+# RSS-specific extra drops (adapter already filters, this is belt & suspenders)
+rss_exclude_words:
+  - newsroom
+  - press
+  - blog
+  - podcast
+  - stories
+  - insights
+  - updates

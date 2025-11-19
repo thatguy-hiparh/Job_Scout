@@ -117,3 +117,21 @@ emea_terms:
   - ukraine
   - georgia
   - armenia
+
+companies:
+  Sony Music:
+    include:
+      - operations
+      - catalog
+      - catalogue
+      - metadata
+      - royalties
+      - analyst
+      - data
+    exclude:
+      - college
+      - campus
+      - representative
+      - ambassador
+      - intern
+      - internship

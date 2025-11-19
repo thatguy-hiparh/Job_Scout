@@ -1,6 +1,8 @@
 # vendors/filters.py — full replacement
 from __future__ import annotations
+import datetime as dt
 from typing import List, Dict, Any
+from dateutil import parser
 
 DEFAULT_REMOTE_TERMS = [
     "remote", "hybrid", "work from anywhere", "distributed", "remoto", "da remoto",
@@ -23,6 +25,41 @@ def _has_any(text: str, needles: list[str]) -> bool:
     if not text or not needles: return False
     t = text.lower()
     return any((n or "").lower() in t for n in needles)
+
+def _company_kw(job: dict, kw: dict) -> dict:
+    companies = kw.get("companies") or {}
+    company = _text(job.get("company"))
+    if not company or not companies:
+        return {}
+    for name, cfg in companies.items():
+        if _has_any(company, [name]):
+            return cfg or {}
+    return {}
+
+def _merge_kw(base: dict, override: dict) -> dict:
+    merged = dict(base)
+    merged["include"] = (base.get("include") or []) + (override.get("include") or [])
+    merged["exclude"] = (base.get("exclude") or []) + (override.get("exclude") or [])
+    return merged
+
+def _is_too_old(job: dict, kw: dict) -> bool:
+    max_age_days = kw.get("max_age_days", 30)
+    if max_age_days is None:
+        return False
+    posted_at = job.get("posted_at")
+    if not posted_at:
+        return False
+    try:
+        posted_dt = parser.parse(str(posted_at))
+    except Exception:
+        return False
+    if not posted_dt.tzinfo:
+        posted_dt = posted_dt.replace(tzinfo=dt.timezone.utc)
+    now = dt.datetime.now(dt.timezone.utc)
+    delta = now - posted_dt
+    if delta.total_seconds() < 0:
+        return False
+    return delta.days > max_age_days
 
 def _location_ok(job: dict, kw: dict) -> bool:
     allow_unlocated = kw.get("allow_unlocated", True)
@@ -57,16 +94,19 @@ def _score(job: dict, kw: dict) -> float:
 
 def filter_jobs(jobs: list[dict], kw: dict) -> list[dict]:
     if not isinstance(jobs, list): return []
-    inc, exc = kw.get("include") or [], kw.get("exclude") or []
     out = []
     for j in jobs:
+        company_kw = _company_kw(j, kw)
+        kw_local = _merge_kw(kw, company_kw)
+        inc, exc = kw_local.get("include") or [], kw_local.get("exclude") or []
         title, company, location = _text(j.get("title")), _text(j.get("company")), _text(j.get("location"))
         hay = f"{title} | {company} | {location}"
         if inc and not _has_any(hay, inc): continue
         if exc and _has_any(hay, exc): continue
-        if not _location_ok(j, kw): continue
+        if _is_too_old(j, kw_local): continue
+        if not _location_ok(j, kw_local): continue
         jj = dict(j)
-        jj["score"] = _score(j, kw)
+        jj["score"] = _score(j, kw_local)
         out.append(jj)
     out.sort(key=lambda x: x.get("score", 0.0), reverse=True)
     return out

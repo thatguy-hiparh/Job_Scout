@@ -6,7 +6,7 @@ import smtplib
 
 from vendors.normalize import normalize
 from vendors.dedupe import dedupe
-from vendors.filters import filter_jobs
+from vendors.filters import filter_jobs_with_debug
 
 from adapters import (
     lever,
@@ -64,9 +64,14 @@ def render_html(jobs, outpath):
 def run(companies_file, keywords_file, outpath):
     companies = yaml.safe_load(open(companies_file, encoding="utf-8"))
     kw = yaml.safe_load(open(keywords_file, encoding="utf-8"))
+    targets = companies.get("targets", [])
+
+    skip_filters = (os.getenv("SKIP_FILTERS", "").strip().lower() in {"1", "true", "yes", "on"})
+
+    print(f"FUNNEL: companies_loaded={len(targets)}")
 
     all_jobs=[]
-    for c in companies["targets"]:
+    for c in targets:
         ats = c.get("ats")
         adapter = ADAPTERS.get(ats)
         if not adapter:
@@ -74,24 +79,44 @@ def run(companies_file, keywords_file, outpath):
         try:
             jobs = adapter.fetch(c)
             all_jobs.extend(jobs)
-            print(f"{c['name']}: {len(jobs)}")
+            print(f"FETCH: company={c['name']} adapter={ats} jobs={len(jobs)}")
         except Exception as e:
             print("ERROR", c.get("name"), e)
 
-    print(f"RAW_BEFORE_NORMALIZE: {len(all_jobs)}")
+    print(f"FUNNEL: total_fetched_before_normalize={len(all_jobs)}")
     all_jobs = normalize(all_jobs)
-    print(f"AFTER_NORMALIZE: {len(all_jobs)}")
+    print(f"FUNNEL: total_before_filtering={len(all_jobs)}")
 
     # Allow bypassing filters to debug: set SKIP_FILTERS=1
-    if os.getenv("SKIP_FILTERS") == "1":
+    if skip_filters:
         print("FILTERS: skipped (SKIP_FILTERS=1)")
     else:
         before = len(all_jobs)
-        all_jobs = filter_jobs(all_jobs, kw)
-        print(f"AFTER_FILTERS: {len(all_jobs)} (removed {before - len(all_jobs)})")
+        all_jobs, debug = filter_jobs_with_debug(all_jobs, kw)
+        print(f"FUNNEL: total_after_filtering={len(all_jobs)} (removed {before - len(all_jobs)})")
+
+        if len(all_jobs) == 0:
+            reasons = debug.get("reasons") or {}
+            if reasons:
+                print("FILTER_DEBUG: top_rejection_reasons")
+                for i, (reason, count) in enumerate(list(reasons.items())[:10], start=1):
+                    print(f"FILTER_DEBUG:   {i}. {reason}: {count}")
+            else:
+                print("FILTER_DEBUG: no rejection reasons captured")
+
+            examples = debug.get("examples") or []
+            if examples:
+                print("FILTER_DEBUG: rejected_examples")
+                for i, ex in enumerate(examples[:3], start=1):
+                    print(
+                        "FILTER_DEBUG:   "
+                        f"{i}. reason={ex.get('reason')} | title={ex.get('title')} | "
+                        f"company={ex.get('company')} | location={ex.get('location')} | "
+                        f"posted_at={ex.get('posted_at')} | source={ex.get('source')} | id={ex.get('id')}"
+                    )
 
     all_jobs = dedupe(all_jobs)
-    print(f"AFTER_DEDUPE: {len(all_jobs)}")
+    print(f"FUNNEL: total_after_dedupe={len(all_jobs)}")
 
     html = render_html(all_jobs, outpath)
     send_email(html)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections import Counter
 from typing import List, Dict, Any
 
 from dateutil import parser
@@ -31,6 +32,28 @@ def _has_any(text: str, needles: list[str]) -> bool:
         return False
     t = text.lower()
     return any((n or "").lower() in t for n in needles)
+
+
+def _has_any_location_term(text: str, needles: list[str]) -> bool:
+    """
+    Safer location matching:
+    - for very short alpha terms (e.g. "US", "UK"), match as whole tokens
+    - otherwise keep substring behavior for flexibility
+    """
+    if not text or not needles:
+        return False
+
+    t = f" {text.lower()} "
+    for raw in needles:
+        n = (raw or "").strip().lower()
+        if not n:
+            continue
+        if len(n) <= 3 and n.isalpha():
+            if f" {n} " in t:
+                return True
+        elif n in t:
+            return True
+    return False
 
 
 def _company_kw(job: dict, kw: dict) -> dict:
@@ -100,9 +123,9 @@ def _location_ok(job: dict, kw: dict) -> bool:
     if not loc:
         return bool(allow_unlocated)
 
-    if allow and not _has_any(loc, allow):
+    if allow and not _has_any_location_term(loc, allow):
         return False
-    if deny and _has_any(loc, deny):
+    if deny and _has_any_location_term(loc, deny):
         return False
 
     return True
@@ -152,10 +175,17 @@ def filter_jobs(jobs: list[dict], kw: dict) -> list[dict]:
       - enforces location rules
       - computes a score for sorting
     """
+    filtered, _debug = filter_jobs_with_debug(jobs, kw)
+    return filtered
+
+
+def filter_jobs_with_debug(jobs: list[dict], kw: dict) -> tuple[list[dict], dict]:
     if not isinstance(jobs, list):
-        return []
+        return [], {"reasons": {}, "examples": []}
 
     out: list[dict] = []
+    reasons: Counter[str] = Counter()
+    examples: list[dict] = []
 
     for j in jobs:
         company_kw = _company_kw(j, kw)
@@ -168,17 +198,32 @@ def filter_jobs(jobs: list[dict], kw: dict) -> list[dict]:
         location = _text(j.get("location"))
         hay = f"{title} | {company} | {location}"
 
+        reject_reason = None
+
         # Only enforce include list strictly when company-specific keywords exist
         if company_kw and inc and not _has_any(hay, inc):
-            continue
+            reject_reason = "include_miss_company_override"
+        elif exc and _has_any(hay, exc):
+            reject_reason = "exclude_match"
+        elif _is_too_old(j, kw_local):
+            reject_reason = "too_old"
+        elif not _location_ok(j, kw_local):
+            reject_reason = "location_blocked"
 
-        if exc and _has_any(hay, exc):
-            continue
-
-        if _is_too_old(j, kw_local):
-            continue
-
-        if not _location_ok(j, kw_local):
+        if reject_reason:
+            reasons[reject_reason] += 1
+            if len(examples) < 3:
+                examples.append(
+                    {
+                        "reason": reject_reason,
+                        "title": title,
+                        "company": company,
+                        "location": location,
+                        "posted_at": _text(j.get("posted_at")),
+                        "source": _text(j.get("source")),
+                        "id": _text(j.get("id")),
+                    }
+                )
             continue
 
         jj = dict(j)
@@ -186,4 +231,4 @@ def filter_jobs(jobs: list[dict], kw: dict) -> list[dict]:
         out.append(jj)
 
     out.sort(key=lambda x: x.get("score", 0.0), reverse=True)
-    return out
+    return out, {"reasons": dict(reasons.most_common()), "examples": examples}
